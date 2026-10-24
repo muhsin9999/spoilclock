@@ -1,0 +1,194 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-public-sans);
+  --font-heading: var(--font-fraunces);
+  --font-mono: var(--font-plex-mono);
+  --color-parchment: var(--parchment);
+  --color-card-soft: var(--card-soft);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-forest-tint: var(--forest-tint);
+  --color-kraft: var(--kraft);
+  --color-wheat: var(--wheat);
+  --color-fresh: var(--fresh);
+  --color-turning: var(--turning);
+  --color-spoiling: var(--spoiling);
+  --color-spoiling-tint: var(--spoiling-tint);
+  --shadow-soft: var(--shadow-soft);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Almanac tokens (docs/DESIGN.md) */
+  --parchment: #f4eedf;
+  --card-soft: #fbf8f0;
+  --ink: #1e2a20;
+  --ink-muted: #6e6b58;
+  --line: #e2d7c0;
+  --forest: #2f5d3a; /* the one primary action on a screen */
+  --forest-deep: #1f3b27;
+  --forest-tint: #e3eadb;
+  --kraft: #a9824f; /* engraved art, secondary marks */
+  --wheat: #eee2c6;
+  /* Freshness ramp: shelf life only */
+  --fresh: #4e8a3e;
+  --turning: #c8952b;
+  --spoiling: #b0452e; /* spoiling or rejected, nothing else */
+  --spoiling-tint: #f5ddd3;
+  --focus: #2f5d3a;
+  --shadow-soft: 0 1px 2px rgb(60 45 20 / 0.06), 0 10px 28px rgb(60 45 20 / 0.06);
+
+  --background: var(--parchment);
+  --foreground: var(--ink);
+  --card: var(--card-soft);
+  --card-foreground: var(--ink);
+  --popover: var(--card-soft);
+  --popover-foreground: var(--ink);
+  --primary: var(--forest);
+  --primary-foreground: #fbf8f0;
+  --secondary: var(--wheat);
+  --secondary-foreground: var(--ink);
+  --muted: #efe7d4;
+  --muted-foreground: var(--ink-muted);
+  --accent: #efe7d4;
+  --accent-foreground: var(--ink);
+  --destructive: var(--spoiling);
+  --border: var(--line);
+  --input: #d9ccb0;
+  --ring: var(--focus);
+  --chart-1: #2f5d3a;
+  --chart-2: #a9824f;
+  --chart-3: #8f8a76;
+  --chart-4: #c8952b;
+  --chart-5: #b0452e;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+/* The agent's active step: a light band moves across the label while it works. */
+@utility shimmer-text {
+  background: linear-gradient(90deg, var(--ink-muted) 0%, var(--ink-muted) 40%, var(--ink) 50%, var(--ink-muted) 60%, var(--ink-muted) 100%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-x 2.2s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    color: var(--ink-muted);
+  }
+}
+@keyframes shimmer-x {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+
+/* Bryntum Scheduler in Almanac colours (the Today board). Scoped to .sc-board. */
+.sc-board {
+  --b-font-family: var(--font-public-sans), system-ui, sans-serif;
+  --b-grid-background: transparent;
+  --b-panel-background: transparent;
+  --b-grid-cell-background: transparent;
+  --b-grid-cell-hover-background: transparent;
+  --b-grid-cell-selected-background: transparent;
+  --b-grid-cell-color: var(--ink);
+  --b-grid-cell-border-color: transparent;
+  --b-grid-row-border-color: var(--line);
+  --b-grid-header-background: transparent;
+  --b-grid-header-border-color: var(--line);
+  --b-grid-header-color: var(--ink-muted);
+  --b-grid-header-font-weight: 500;
+  --b-grid-header-text-transform: none;
+  --b-grid-splitter-color: var(--line);
+  --b-column-lines-tick-color: color-mix(in srgb, var(--line) 55%, transparent);
+  --b-column-lines-major-color: var(--line);
+  --b-current-time-color: var(--forest);
+  font-family: var(--font-public-sans), system-ui, sans-serif;
+}
+.sc-board .b-grid-header-container { border-bottom: 1px solid var(--line); }
+.sc-board .b-sch-header-time-axis-cell { font-size: 0.75rem; letter-spacing: 0.04em; }
+.sc-board .sc-truck { display: flex; flex-direction: column; gap: 0.3rem; padding-left: 0.75rem; }
+.sc-board .sc-truck-name { font-family: var(--font-fraunces); font-size: 1.45rem; line-height: 1; color: var(--ink); letter-spacing: -0.01em; }
+.sc-board .sc-truck-load { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
+.sc-board .b-sch-event.sc-trip {
+  border-radius: 0.5rem; padding: 0 0.7rem; gap: 0.5rem; font-size: 0.8125rem; font-weight: 400;
+  background: var(--card-soft); color: var(--ink); border: 1px solid var(--line); box-shadow: none;
+}
+.sc-board .sc-trip .sc-dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--forest); flex: none; }
+.sc-board .sc-trip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-board .b-sch-event.sc-delivery { background: var(--forest-tint); border-color: color-mix(in srgb, var(--forest) 25%, var(--line)); }
+.sc-board .b-sch-event.sc-rejected { background: var(--spoiling-tint); border-color: color-mix(in srgb, var(--spoiling) 45%, transparent); color: #7a2a1a; }
+.sc-board .sc-rejected .sc-dot { background: var(--spoiling); }
+.sc-board .b-sch-event.sc-redelivery { background: color-mix(in srgb, var(--forest-tint) 70%, transparent); border: 1.5px dashed var(--forest); }
+.sc-board .b-sch-current-time { border-left-width: 2px; }
+.sc-board .b-sch-current-time label, .sc-board .b-sch-current-time .b-sch-range-label {
+  background: var(--forest); color: var(--card-soft); border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.75rem;
+}
+
+/* Ink stamp: a double rule and a little grit so it reads as pressed ink, not a badge. */
+.stamp {
+  box-shadow: inset 0 0 0 2px var(--card-soft), inset 0 0 0 3.5px currentColor;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.6 1.45'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.6 1.45'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}

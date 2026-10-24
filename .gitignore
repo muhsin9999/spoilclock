@@ -1,0 +1,12 @@
+.env.local
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+test-results/
+.vercel
+scripts/spikes/.failure-test.json
+.env*
+public/bryntum/
+scripts/spikes/bryntum-next/
+assets-src/
