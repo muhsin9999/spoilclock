@@ -2,7 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import type { Scheduler as BryntumScheduler } from "@bryntum/scheduler";
-import type { Trip, Truck } from "@/lib/demo-day";
+import type { TripKind, Truck } from "@/lib/demo-day";
+
+export type Trip = { id: string; truckId: string; kind: TripKind; place: string; start: number; end: number };
 
 // Bryntum's prebuilt bundle is served from public/bryntum (scripts/copy-bryntum.mjs) and loaded at
 // runtime, so the bundler never processes it. Only its types are imported above.

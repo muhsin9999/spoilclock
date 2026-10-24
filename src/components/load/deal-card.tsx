@@ -29,7 +29,7 @@ export function DealCard(p: Props) {
             {p.pallets} pallets · {usd(total)}
           </div>
           <div className="text-ink-muted">
-            {p.buyer} · arrives by {p.arriveBy}, {p.marginBeforeSpoil} before it spoils
+            {p.buyer} · unloaded by {p.arriveBy}, {p.marginBeforeSpoil} before it spoils
           </div>
         </div>
       </div>

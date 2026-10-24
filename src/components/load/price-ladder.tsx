@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { Buyer, Offer } from "@/lib/demo-load";
+export type LadderOffer = { round: number; by: string; perPallet: number };
+type LadderBuyer = { id: string; name: string; color: string };
 
-type Props = { offers: Offer[]; buyers: Buyer[]; floor: number; deal?: { perPallet: number; buyerId: string } };
+type Props = { offers: LadderOffer[]; buyers: LadderBuyer[]; floor: number; deal?: { perPallet: number; buyerId: string } };
 
 const W = 640;
 const H = 300;
@@ -16,7 +17,7 @@ const SELLER = { id: "seller", name: "Your agent's ask", color: "var(--ink)" };
  */
 export function PriceLadder({ offers, buyers, floor, deal }: Props) {
   const [hover, setHover] = useState<number | null>(null);
-  const rounds = Math.max(...offers.map((o) => o.round));
+  const rounds = Math.max(2, ...offers.map((o) => o.round));
   const prices = [...offers.map((o) => o.perPallet), floor];
   const lo = Math.floor((Math.min(...prices) - 10) / 10) * 10;
   const hi = Math.ceil((Math.max(...prices) + 5) / 10) * 10;
