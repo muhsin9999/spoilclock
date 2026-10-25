@@ -168,6 +168,7 @@ export default function Landing() {
               ["Buyers", "/buyers"],
               ["Money", "/money"],
               ["Rules", "/rules"],
+              ["How it's built", "/architecture"],
             ]}
           />
           <FooterCol

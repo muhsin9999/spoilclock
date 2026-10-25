@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, CalendarClock, Handshake, Package, SlidersHorizontal, Wallet } from "lucide-react";
+import { ArrowLeft, CalendarClock, Handshake, Network, Package, SlidersHorizontal, Wallet } from "lucide-react";
 import { Logo } from "@/components/brand/leaf-clock";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,10 @@ export function Sidebar({ farm, needs, sandbox }: { farm: string; needs?: React.
       </nav>
       {needs && <div className="mt-6">{needs}</div>}
       <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-3">
-        {/* "How it's built" (/architecture) joins here once that page exists. */}
+        <Link href="/architecture" className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-xs text-ink-muted hover:bg-wheat/60 hover:text-ink">
+          <Network className="size-3.5" />
+          How it&apos;s built
+        </Link>
         <Link href="/" className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-xs text-ink-muted hover:bg-wheat/60 hover:text-ink">
           <ArrowLeft className="size-3.5" />
           Spoilclock home
