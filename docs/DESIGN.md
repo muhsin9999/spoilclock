@@ -1,4 +1,4 @@
-# Design: "Almanac" (draft, 25 Oct 2026)
+# Design: "Almanac" (25 Oct 2026)
 
 Picked by the user from a nine-style sheet: **#4 Premium agriculture** (cream, deep forest green, kraft brown, an engraved field illustration). Calm, warm and professional like Cleared and Lifeline, but its own: a farm almanac / seed-merchant feel, not an office.
 
@@ -33,10 +33,13 @@ Rust (#B0452E) means spoiling or rejected, nothing else. Different from Cleared 
 4. **Inspection stamps.** Big state changes land as an ink stamp, like a produce inspection stamp: REJECTED, HELD $2,752, ACCEPTED, VOIDED. Only for these moments.
 
 ## Layout
-- Top bar (logo, the most urgent clock, PayPal sandbox tag). No sidebar, no chat rail.
-- **Today:** Bryntum Scheduler, light theme retuned to these tokens; trucks as rows, bars in freshness colours, the agent's new delivery dashed in forest.
-- **Load room:** load card + clock, offers chart against the floor, deal card, and the load's own chat (messages, attachments, the agent says what it changed).
+- **Sidebar** (the product standard, chosen by the user): Today · Loads · Buyers · Money · Rules, a "needs you" card for the most urgent load, How it's built, back home, and the PayPal sandbox panel. Phones: a top bar and a bottom tab bar.
+- **Today:** Bryntum Scheduler, light theme retuned to these tokens; trucks as rows, bars per trip kind, the agent's new delivery dashed in forest. Click a delivery to report a rejection.
+- **Load page:** a wide facts strip (freshness ring, grade, prices, floor, files), then the negotiation (price ladder, buyer agents, deal card or money trail) beside the load's chat.
 - **Dock check:** phone-first.
+
+## The agent
+The engraved crate (public/art/crate-blank.webp) with its face drawn in code (src/components/brand/agent-crate.tsx): idle (blinks, glances, can follow the cursor), working (eyes scan), thinking, worried, happy.
 
 ## Never
 Gradients, glassmorphism, coloured side stripes, robot icons, emoji, strawberry clip-art as a logo, invented numbers.
