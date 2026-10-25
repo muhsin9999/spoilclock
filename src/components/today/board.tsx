@@ -48,7 +48,7 @@ export function Board({ trucks, trips, window: win, timeZone }: Props) {
         },
         features: {
           timeRanges: { showCurrentTimeLine: { name: "Now" } },
-          eventTooltip: false,
+          eventTooltip: { template: ({ eventRecord }: { eventRecord: { name: string; getData(k: string): unknown } }) => `${esc(eventRecord.name)} · ${esc(String(eventRecord.getData("place")))}` },
           scheduleTooltip: false,
           cellMenu: false,
           eventMenu: false,
@@ -75,10 +75,12 @@ export function Board({ trucks, trips, window: win, timeZone }: Props) {
           resourceId: t.truckId,
           startDate: new Date(t.start),
           endDate: new Date(t.end),
-          name: `${KIND_LABEL[t.kind]} · ${t.place}`,
+          name: KIND_LABEL[t.kind],
+          place: t.place,
           cls: `sc-trip sc-${t.kind}`,
         })),
-        eventRenderer: ({ eventRecord }: { eventRecord: { name: string } }) => `<span class="sc-dot"></span><span class="sc-trip-text">${esc(eventRecord.name)}</span>`,
+        eventRenderer: ({ eventRecord }: { eventRecord: { name: string; getData(k: string): unknown } }) =>
+          `<span class="sc-dot"></span><span class="sc-trip-text"><b>${esc(eventRecord.name)}</b><span>${esc(String(eventRecord.getData("place")))}</span></span>`,
       });
     });
     return () => {

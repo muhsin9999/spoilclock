@@ -1,9 +1,11 @@
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
+import { ApproveButton } from "./approve-button";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 type Props = {
+  loadId: string;
+  card?: string;
   buyer: string;
   pallets: number;
   perPallet: number;
@@ -47,8 +49,10 @@ export function DealCard(p: Props) {
           <dd className="tabular-nums">{share}%</dd>
         </div>
       </dl>
-      <Button size="lg" className="mt-5 h-12 w-full rounded-lg text-base">Approve and hold payment</Button>
-      <p className="mt-2 text-center text-xs text-ink-muted">PayPal holds {usd(total)} on {p.buyer}&apos;s card. Nothing is charged until the new dock accepts the load.</p>
+      <ApproveButton loadId={p.loadId} />
+      <p className="mt-2 text-center text-xs text-ink-muted">
+        PayPal holds {usd(total)} on {p.buyer}&apos;s {p.card ?? "card"}. Nothing is charged until the new dock accepts the load.
+      </p>
     </div>
   );
 }

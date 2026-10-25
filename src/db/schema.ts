@@ -99,6 +99,7 @@ export const deals = pgTable("deals", {
   authorizationId: text("authorization_id"),
   captureId: text("capture_id"),
   capturedCents: integer("captured_cents"),
+  dockKey: text("dock_key").notNull().default(sql`replace(gen_random_uuid()::text, '-', '')`), // the receiver's dock-check link
   approvedAt: ts("approved_at"),
   settledAt: ts("settled_at"),
   createdAt: at(),
@@ -135,6 +136,7 @@ export const paypalEvents = pgTable("paypal_events", {
   eventId: text("event_id").notNull().unique(),
   type: text("type").notNull(),
   resourceId: text("resource_id"),
+  dealId: uuid("deal_id"),
   verified: boolean("verified").notNull(),
   payload: jsonb("payload").notNull(),
   receivedAt: at("received_at"),
@@ -149,5 +151,14 @@ export const aiCalls = pgTable("ai_calls", {
   inputTokens: integer("input_tokens").notNull(),
   outputTokens: integer("output_tokens").notNull(),
   ms: integer("ms").notNull(),
+  createdAt: at(),
+});
+
+// Each buyer agent's card on file, saved in PayPal's Vault. We keep only PayPal's token, never a card number.
+export const buyerCards = pgTable("buyer_cards", {
+  buyerId: text("buyer_id").primaryKey(),
+  vaultId: text("vault_id").notNull(),
+  brand: text("brand").notNull(),
+  last4: text("last4").notNull(),
   createdAt: at(),
 });

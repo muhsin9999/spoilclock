@@ -16,4 +16,4 @@ export function proxy(req: NextRequest) {
   return res;
 }
 
-export const config = { matcher: ["/today", "/loads/:path*", "/api/:path*"] };
+export const config = { matcher: ["/today", "/loads/:path*", "/api/files/:path*"] };

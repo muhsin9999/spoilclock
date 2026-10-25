@@ -6,6 +6,7 @@ import { z } from "zod";
 import { chat } from "@/server/ai/chat";
 import { claimNegotiation, negotiate, underCap } from "@/server/ai/negotiate";
 import { ownsLoad } from "@/server/load";
+import { holdPayment } from "@/server/paypal/money";
 
 const Id = z.uuid();
 
@@ -37,4 +38,12 @@ export async function sendMessage(loadId: string, text: string): Promise<Result>
   }
   refresh();
   return { ok: true };
+}
+
+/** "Approve and hold payment": PayPal authorizes the deal on the buyer agent's saved card. */
+export async function approveDeal(loadId: string): Promise<Result> {
+  if (!Id.safeParse(loadId).success || !(await ownsLoad(loadId))) return { ok: false, error: "That load isn't yours." };
+  const r = await holdPayment(loadId);
+  refresh();
+  return r;
 }

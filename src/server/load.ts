@@ -15,7 +15,15 @@ export async function getLoad(loadId: string) {
     db.select().from(s.messages).where(eq(s.messages.loadId, loadId)).orderBy(asc(s.messages.createdAt)),
     db.select({ id: s.files.id, name: s.files.name, type: s.files.type, sample: s.files.sample }).from(s.files).where(eq(s.files.loadId, loadId)).orderBy(asc(s.files.createdAt)),
   ]);
-  return { load, offers, states, deal: deals[0] ?? null, messages, files };
+  const deal = deals[0] ?? null;
+  const [events, cards] = deal
+    ? await Promise.all([
+        db.select({ type: s.paypalEvents.type, receivedAt: s.paypalEvents.receivedAt }).from(s.paypalEvents).where(and(eq(s.paypalEvents.dealId, deal.id), eq(s.paypalEvents.verified, true))),
+        db.select().from(s.buyerCards).where(eq(s.buyerCards.buyerId, deal.buyerId)),
+      ])
+    : [[], []];
+  const card = cards[0] ? `${cards[0].brand} ····${cards[0].last4}` : undefined;
+  return { load, offers, states, deal, messages, files, events, card };
 }
 
 export type LoadView = NonNullable<Awaited<ReturnType<typeof getLoad>>>;

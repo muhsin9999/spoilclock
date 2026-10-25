@@ -13,6 +13,8 @@ type Props = {
   /** Server time at render, so the first client render matches. */
   now: number;
   size?: "sm" | "lg";
+  /** When the load was sold: the clock stops there and shows the time to spare. */
+  stoppedAt?: number;
   className?: string;
 };
 
@@ -30,8 +32,9 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number) {
  * fresh green at the start and the current freshness colour at its end.
  * `sm` puts the leaf hand inside (top bar); `lg` puts the time inside (load cards).
  */
-export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", className }: Props) {
-  const now = useNow(serverNow, size === "sm" ? 15_000 : 1000);
+export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", stoppedAt, className }: Props) {
+  const ticking = useNow(serverNow, size === "sm" ? 15_000 : 1000);
+  const now = stoppedAt ?? ticking;
   const left = Math.max(0, spoilsAt - now);
   const f = Math.min(1, left / totalMs);
   const r = size === "sm" ? 19 : 20.5;
@@ -40,7 +43,7 @@ export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", 
   const label = timeLeft(left);
 
   return (
-    <div className={cn("relative inline-grid shrink-0 place-items-center", size === "sm" ? "size-12" : "size-56", className)} role="img" aria-label={left > 0 ? `${label} left before it spoils` : "Spoiled"}>
+    <div className={cn("relative inline-grid shrink-0 place-items-center", size === "sm" ? "size-12" : "size-56", className)} role="img" aria-label={left > 0 ? (stoppedAt ? `Sold with ${label} to spare` : `${label} left before it spoils`) : "Spoiled"}>
       <svg viewBox="0 0 48 48" className="absolute inset-0 size-full" aria-hidden>
         <circle cx="24" cy="24" r={r} fill="none" stroke="var(--wheat)" strokeWidth={stroke} />
         {Array.from({ length: n }, (_, i) => {
@@ -53,7 +56,7 @@ export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", 
       {size === "lg" && (
         <div className="relative text-center font-heading leading-none text-ink">
           <div className="text-[2.6rem] font-medium tracking-tight tabular-nums">{label}</div>
-          {left > 0 && <div className="mt-1.5 text-2xl">left</div>}
+          {left > 0 && <div className="mt-1.5 text-2xl">{stoppedAt ? "to spare" : "left"}</div>}
         </div>
       )}
     </div>

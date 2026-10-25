@@ -175,7 +175,10 @@
   background: var(--card-soft); color: var(--ink); border: 1px solid var(--line); box-shadow: none;
 }
 .sc-board .sc-trip .sc-dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--forest); flex: none; }
-.sc-board .sc-trip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-board .sc-trip-text { display: flex; min-width: 0; flex-direction: column; line-height: 1.2; }
+.sc-board .sc-trip-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-board .sc-trip-text b { font-weight: 600; }
+.sc-board .sc-trip-text span { font-size: 0.75rem; opacity: 0.8; }
 .sc-board .b-sch-event.sc-delivery { background: var(--forest-tint); border-color: color-mix(in srgb, var(--forest) 25%, var(--line)); }
 .sc-board .b-sch-event.sc-rejected { background: var(--spoiling-tint); border-color: color-mix(in srgb, var(--spoiling) 45%, transparent); color: #7a2a1a; }
 .sc-board .sc-rejected .sc-dot { background: var(--spoiling); }

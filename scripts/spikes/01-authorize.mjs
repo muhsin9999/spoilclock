@@ -16,7 +16,7 @@ async function authorize(payment_source, value, ref) {
   });
   const auth = json.purchase_units?.[0]?.payments?.authorizations?.[0];
   step(`authorize $${value} (${ref})`, json.status === "COMPLETED" && auth?.status === "CREATED",
-    `order ${json.id} ${json.status} · auth ${auth?.id} ${auth?.status} · expires ${auth?.expiration_time}`);
+    `order ${json.id} ${json.status} · auth ${auth?.id} ${auth?.status} · payee ${json.purchase_units?.[0]?.payee?.email_address ?? "?"}`);
   return auth;
 }
 

@@ -13,6 +13,7 @@ import { Buyers } from "@/components/load/buyers";
 import { DealCard } from "@/components/load/deal-card";
 import { FindBuyerButton } from "@/components/load/find-buyer";
 import { LoadChat, type ChatMessage } from "@/components/load/load-chat";
+import { MoneyTrail } from "@/components/load/money-trail";
 import { PriceLadder } from "@/components/load/price-ladder";
 import { RouteSteps } from "@/components/load/route-steps";
 import { BUYERS, buyer as buyerById } from "@/lib/buyers";
@@ -31,7 +32,7 @@ export default function LoadPage({ params }: PageProps<"/loads/[id]">) {
   );
 }
 
-const STEP: Record<string, number> = { rejected: 1, negotiating: 1, reopened: 1, no_deal: 1, deal_ready: 1, held: 3, captured: 5, partial: 5, voided: 1 };
+const STEP: Record<string, number> = { rejected: 1, negotiating: 1, reopened: 1, no_deal: 1, deal_ready: 1, held: 3, captured: 5, partial: 5 };
 
 async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) {
   const { id } = await params;
@@ -40,14 +41,18 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
   const view = await getLoad(id);
   if (!view) notFound();
   const now = Date.now();
-  const { load, offers, states, deal, messages, files } = view;
+  const { load, offers, states, deal, messages, files, events, card } = view;
+  const settledOrHeld = deal && deal.status !== "ready";
   const truck = TRUCKS.find((t) => t.id === load.truckId)!;
   const working = load.status === "negotiating";
   const rounds = offers.length ? Math.max(...offers.map((o) => o.round)) : 0;
 
   return (
     <div className="flex min-h-svh flex-col">
-      <LiveRefresh active={working} />
+      <LiveRefresh
+        active={working || deal?.status === "held" || deal?.status === "settling" || (!!settledOrHeld && events.length < 2)}
+        everyMs={working ? 1500 : 3000}
+      />
       <TopBar now={now}>
         <nav className="hidden items-center gap-2 text-ink-muted md:flex" aria-label="Breadcrumb">
           <Link href="/today" className="hover:text-ink">Today</Link>
@@ -63,7 +68,13 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
         <div className="mt-7">
           <RouteSteps
             current={STEP[load.status] ?? 1}
-            detail={{ 0: load.rejectedBy, 1: working ? "Talking to buyer agents" : deal ? buyerById(deal.buyerId)?.name : `${BUYERS.length} buyer agents` }}
+            detail={{
+              0: load.rejectedBy,
+              1: working ? "Talking to buyer agents" : deal && deal.status !== "voided" ? buyerById(deal.buyerId)?.name : `${BUYERS.length} buyer agents`,
+              2: deal && settledOrHeld && deal.status !== "voided" ? `$${((deal.perPalletCents * deal.pallets) / 100).toLocaleString("en-US")} on PayPal` : undefined,
+              3: deal?.status === "held" ? `Unloaded by ${clock(deal.arriveAt.getTime())}` : undefined,
+              4: deal?.status === "captured" || deal?.status === "partial" ? `$${((deal.capturedCents ?? 0) / 100).toLocaleString("en-US")} captured` : undefined,
+            }}
           />
         </div>
 
@@ -86,8 +97,11 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
               <Start view={view} working={working} />
             )}
             {(offers.length > 0 || working) && <Buyers buyers={BUYERS} offers={offers} states={states} live={working} />}
-            {deal && (
+            {deal && settledOrHeld && <MoneyTrail deal={deal} events={events} card={card} />}
+            {deal && !settledOrHeld && (
               <DealCard
+                loadId={load.id}
+                card={card}
                 buyer={buyerById(deal.buyerId)!.name}
                 pallets={deal.pallets}
                 perPallet={deal.perPalletCents / 100}
@@ -148,7 +162,12 @@ function LoadFacts({ view, now }: { view: LoadView; now: number }) {
     <aside className="space-y-5 rounded-xl border border-line bg-card-soft p-5 shadow-soft">
       <div className="relative grid place-items-center pt-4">
         <Stamp className="absolute -top-1 -left-1 z-10">Rejected</Stamp>
-        <FreshnessRing spoilsAt={load.spoilsAt.getTime()} totalMs={load.spoilsAt.getTime() - load.rejectedAt.getTime()} now={now} />
+        <FreshnessRing
+          spoilsAt={load.spoilsAt.getTime()}
+          totalMs={load.spoilsAt.getTime() - load.rejectedAt.getTime()}
+          now={now}
+          stoppedAt={(view.deal?.status === "captured" || view.deal?.status === "partial") && view.deal.settledAt ? view.deal.settledAt.getTime() : undefined}
+        />
       </div>
       <dl className="grid grid-cols-3 gap-2 border-t border-line pt-4 text-center">
         {[
