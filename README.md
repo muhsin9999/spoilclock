@@ -76,7 +76,15 @@ The trial build is used, as the hackathon offers, so the board carries Bryntum's
 
 ## Architecture
 
-**Explore it live at [spoilclock-app.vercel.app/architecture](https://spoilclock-app.vercel.app/architecture):** the life of one load, step by step, with the real call and file at each step, the safety steps, what the AI can't do, and the decisions behind it. Everything on that page comes from `src/lib/architecture.ts`.
+[![Spoilclock's architecture map: people, the Next.js app, agents and money, AI and rules, and PayPal lanes, with data and the schedule underneath](docs/architecture.png)](https://spoilclock-app.vercel.app/architecture)
+
+**Explore it live at [spoilclock-app.vercel.app/architecture](https://spoilclock-app.vercel.app/architecture).** You can:
+- click any part to see what it does, its real calls and its code;
+- play a journey step by step (a load rescued, a rejection reported, the dock says no, the grower talks to the agent);
+- open the Trust lens to see what the AI can't do;
+- read the decisions behind each choice.
+
+Everything on that page comes from one file, `src/lib/architecture.ts`.
 
 | Piece | What it runs |
 | --- | --- |

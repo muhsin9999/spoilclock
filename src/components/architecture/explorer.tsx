@@ -1,283 +1,474 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { m } from "motion/react";
-import { ChevronLeft, ChevronRight, FileCode2, Gauge, Lock, Pause, Play, ShieldCheck } from "lucide-react";
-import { CANNOT, DECISIONS, LANES, PARTS, REPO, STEPS } from "@/lib/architecture";
+import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
+import { AnimatePresence, m } from "motion/react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRightIcon,
+  BanIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  MaximizeIcon,
+  MinusIcon,
+  PauseIcon,
+  PlayIcon,
+  PlusIcon,
+  SearchIcon,
+  ShieldCheckIcon,
+  XIcon,
+} from "lucide-react";
+import { AgentCrate } from "@/components/brand/agent-crate";
+import { Logo } from "@/components/brand/leaf-clock";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { CANNOT, DECISIONS, EDGES, JOURNEYS, LANES, NODES, REPO, type ArchNode } from "@/lib/architecture";
 import { cn } from "@/lib/utils";
+import { ArchCanvas, type CanvasState, FIT, type Look } from "./canvas";
+import { NodeLogo } from "./node-logo";
 
-const TABS = ["Life of one load", "The parts", "What the AI can't do", "Decisions"] as const;
-type Tab = (typeof TABS)[number];
+type Tab = "map" | "journeys" | "trust" | "decisions";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "map", label: "Map" },
+  { id: "journeys", label: "Journeys" },
+  { id: "trust", label: "Trust" },
+  { id: "decisions", label: "Decisions" },
+];
+const STEP_MS = 2600;
+const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
 
-export function Explorer() {
-  const [tab, setTab] = useState<Tab>("Life of one load");
+export function ArchitectureExplorer() {
   return (
-    <div>
-      <div role="tablist" aria-label="Views" className="flex flex-wrap gap-1 border-b border-line">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn("-mb-px border-b-2 px-4 py-2.5 text-[0.95rem] transition-colors", tab === t ? "border-forest font-medium text-forest-deep" : "border-transparent text-ink-muted hover:text-ink")}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-      <div className="pt-8">
-        {tab === "Life of one load" && <Life />}
-        {tab === "The parts" && <Parts />}
-        {tab === "What the AI can't do" && <Cannot />}
-        {tab === "Decisions" && <Decisions />}
-      </div>
+    <ReactFlowProvider>
+      <Explorer />
+    </ReactFlowProvider>
+  );
+}
+
+function useDesktop() {
+  const [desktop, setDesktop] = useState<boolean | null>(null);
+  useEffect(() => {
+    const q = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(q.matches);
+    update();
+    q.addEventListener("change", update);
+    return () => q.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
+
+function Explorer() {
+  const desktop = useDesktop();
+  const [tab, setTab] = useState<Tab>("map");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [journeyId, setJourneyId] = useState(JOURNEYS[0].id);
+  const [step, setStep] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [trust, setTrust] = useState(true);
+  const journey = JOURNEYS.find((j) => j.id === journeyId)!;
+  const last = journey.steps.length - 1;
+
+  // Playback: one step every few seconds; it stops by itself on the last step.
+  const running = playing && step < last;
+  useEffect(() => {
+    if (!running || tab !== "journeys") return;
+    const t = setTimeout(() => setStep((s) => s + 1), STEP_MS);
+    return () => clearTimeout(t);
+  }, [running, step, tab]);
+
+  const state = useMemo<CanvasState>(() => {
+    const looks: Record<string, Look> = {};
+    const edgeLooks: CanvasState["edgeLooks"] = {};
+    const badges: Record<string, string> = {};
+    let call: CanvasState["call"] = null;
+    const q = query.trim().toLowerCase();
+    if (tab === "journeys") {
+      const now = journey.steps[step];
+      const seen = new Set(journey.steps.slice(0, step).flatMap((s) => s.nodes));
+      for (const n of NODES) looks[n.id] = now.nodes.includes(n.id) ? "lit" : seen.has(n.id) ? "visited" : "dim";
+      for (const e of EDGES) edgeLooks[e.id] = now.edges.includes(e.id) ? "active" : "dim";
+      if (now.call) call = { node: now.nodes.find((id) => byId[id].lane !== "people") ?? now.nodes[0], text: now.call };
+    } else if (tab === "trust" && trust) {
+      for (const n of NODES) {
+        looks[n.id] = n.trust ? "lit" : "dim";
+        if (n.trust) badges[n.id] = n.trust;
+      }
+      for (const e of EDGES) edgeLooks[e.id] = e.kind === "gate" ? "active" : "dim";
+    } else if (q) {
+      for (const n of NODES) looks[n.id] = `${n.title} ${n.sub} ${n.summary}`.toLowerCase().includes(q) ? "lit" : "dim";
+    } else {
+      const focus = hovered ?? selected;
+      if (focus) {
+        const linked = EDGES.filter((e) => e.from === focus || e.to === focus);
+        const near = new Set([focus, ...linked.flatMap((e) => [e.from, e.to])]);
+        for (const n of NODES) looks[n.id] = n.id === focus ? "lit" : near.has(n.id) ? "normal" : "dim";
+        for (const e of EDGES) edgeLooks[e.id] = linked.includes(e) ? "active" : "dim";
+      }
+    }
+    return { looks, edgeLooks, badges, call, selected };
+  }, [tab, journey, step, trust, query, hovered, selected]);
+
+  const chooseJourney = (id: string) => {
+    setJourneyId(id);
+    setStep(0);
+    setPlaying(true);
+  };
+  const goTab = (t: Tab) => {
+    setTab(t);
+    setSelected(null);
+    if (t === "journeys") {
+      setStep(0);
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <div className="flex h-svh flex-col bg-parchment text-ink">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card-soft px-3 sm:px-4">
+        <Link href="/" aria-label="Spoilclock home" className="shrink-0">
+          <Logo size="sm" className="max-sm:[&>span:last-child]:hidden" />
+        </Link>
+        <span className="hidden text-sm text-muted-foreground md:inline">Architecture</span>
+        <nav aria-label="Views" className="ml-1 flex min-w-0 gap-0.5 overflow-x-auto sm:ml-3">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => goTab(t.id)}
+              aria-current={tab === t.id ? "page" : undefined}
+              className={cn("rounded-md px-2 py-1.5 text-[0.82rem] font-medium whitespace-nowrap transition-colors sm:px-2.5 sm:text-sm", tab === t.id ? "bg-forest-tint text-forest-deep" : "text-muted-foreground hover:text-ink")}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2">
+          {desktop && tab !== "decisions" ? (
+            <label className="relative hidden xl:block">
+              <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  if (tab !== "map") setTab("map");
+                }}
+                placeholder="Search parts, APIs, files"
+                aria-label="Search the map"
+                className="h-9 w-64 rounded-lg border bg-parchment pr-3 pl-8 text-sm outline-none focus-visible:border-ink"
+              />
+            </label>
+          ) : null}
+          {desktop && tab !== "decisions" ? <FitButton /> : null}
+          <Link href="/today" className="hidden items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted sm:inline-flex">
+            Open the app <ArrowRightIcon aria-hidden className="size-3.5" />
+          </Link>
+        </div>
+      </header>
+
+      {tab === "decisions" ? (
+        <Decisions />
+      ) : desktop === null ? (
+        <div className="flex-1" />
+      ) : desktop ? (
+        <div className="flex min-h-0 flex-1">
+          {tab === "journeys" ? <JourneyList journeyId={journeyId} step={step} onJourney={chooseJourney} onStep={(i) => { setStep(i); setPlaying(false); }} /> : null}
+          <div className="relative min-w-0 flex-1">
+            <ArchCanvas state={state} layout={`${tab}:${!!selected || tab === "trust"}`} onSelect={setSelected} onHover={setHovered} />
+            <Key tab={tab} />
+            <ZoomButtons />
+            {tab === "journeys" ? <Playback steps={journey.steps.length} step={step} title={journey.steps[step].title} sub={journey.steps[step].sub} playing={running} onPlay={() => { if (step >= last) { setStep(0); setPlaying(true); } else setPlaying(!running); }} onStep={(i) => { setStep(i); setPlaying(false); }} done={step === last} /> : null}
+          </div>
+          <AnimatePresence initial={false}>
+            {selected ? (
+              <Panel key="node">
+                <NodeDetail node={byId[selected]} onClose={() => setSelected(null)} onSelect={setSelected} />
+              </Panel>
+            ) : tab === "trust" ? (
+              <Panel key="trust">
+                <TrustPanel on={trust} onToggle={setTrust} onSelect={setSelected} />
+              </Panel>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      ) : (
+        <MobileView tab={tab} journeyId={journeyId} onJourney={chooseJourney} />
+      )}
     </div>
   );
 }
 
-function FileLink({ path }: { path: string }) {
+function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <a href={REPO + path} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-line bg-card-soft px-2 py-1 font-mono text-xs text-ink-muted hover:border-forest hover:text-forest">
-      <FileCode2 className="size-3.5" />
-      {path}
-    </a>
+    <m.aside initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }} transition={{ duration: 0.2 }} className="w-[23rem] shrink-0 overflow-y-auto border-l bg-card-soft">
+      {children}
+    </m.aside>
   );
 }
 
-// ─── Life of one load: a swimlane in time order ─────────────────────────────────────────────────────
-
-const COL = 168; // px per step on the track
-const ROW = 92; // px per lane
-
-function Life() {
-  const [active, setActive] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [trust, setTrust] = useState(false);
-  const track = useRef<HTMLDivElement>(null);
-  const cards = useRef<(HTMLButtonElement | null)[]>([]);
-  const [points, setPoints] = useState<{ x: number; y: number; l: number; r: number }[]>([]);
-
-  // Card centres, measured, so the path runs through the real cards.
-  const measure = useCallback(() => {
-    const box = track.current?.getBoundingClientRect();
-    if (!box) return;
-    setPoints(cards.current.map((c) => (c ? { x: c.offsetLeft + c.offsetWidth / 2, y: c.offsetTop + c.offsetHeight / 2, l: c.offsetLeft, r: c.offsetLeft + c.offsetWidth } : { x: 0, y: 0, l: 0, r: 0 })));
-  }, []);
-  useLayoutEffect(() => {
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (track.current) ro.observe(track.current);
-    return () => ro.disconnect();
-  }, [measure]);
-
-  useEffect(() => {
-    if (!playing) return;
-    const id = setTimeout(() => {
-      if (active >= STEPS.length - 1) setPlaying(false);
-      else setActive((a) => a + 1);
-    }, 1900);
-    return () => clearTimeout(id);
-  }, [playing, active]);
-
-  // Keep the active card in view on the scrolling track.
-  useEffect(() => {
-    cards.current[active]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [active]);
-
-  const step = STEPS[active];
-  const lane = LANES.find((l) => l.id === step.lane)!;
-  // Right-angled links through the gaps between cards: out of one card's right edge, along the gap, into the next.
-  const route = (to: number) =>
-    points
-      .slice(0, to + 1)
-      .map((p, i, all) => {
-        if (i === 0) return `M${p.r} ${p.y}`;
-        const prev = all[i - 1];
-        const gap = (prev.r + p.l) / 2;
-        return `L${gap} ${prev.y} L${gap} ${p.y} L${p.l} ${p.y}${i < all.length - 1 ? ` M${p.r} ${p.y}` : ""}`;
-      })
-      .join(" ");
-  const path = points.length ? route(points.length - 1) : "";
-  const dot = points[active];
-
+function FitButton() {
+  const flow = useReactFlow();
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button onClick={() => setPlaying((p) => !p)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-forest px-4 text-card-soft hover:bg-forest-deep">
-          {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-          {playing ? "Pause" : active === 0 ? "Play the rescue" : "Play on"}
-        </button>
-        <button onClick={() => setActive((a) => Math.max(0, a - 1))} disabled={active === 0} className="grid size-10 place-items-center rounded-lg border border-line hover:bg-wheat/50 disabled:opacity-40" aria-label="Previous step">
-          <ChevronLeft className="size-4" />
-        </button>
-        <button onClick={() => setActive((a) => Math.min(STEPS.length - 1, a + 1))} disabled={active === STEPS.length - 1} className="grid size-10 place-items-center rounded-lg border border-line hover:bg-wheat/50 disabled:opacity-40" aria-label="Next step">
-          <ChevronRight className="size-4" />
-        </button>
-        <span className="ml-1 text-sm text-ink-muted tabular-nums">
-          Step {active + 1} of {STEPS.length}
-        </span>
-        <button
-          onClick={() => setTrust((t) => !t)}
-          aria-pressed={trust}
-          className={cn("ml-auto inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm", trust ? "border-forest bg-forest-tint text-forest-deep" : "border-line text-ink-muted hover:text-ink")}
-        >
-          <ShieldCheck className="size-4" /> Show the safety steps
-        </button>
-      </div>
+    <Button size="sm" variant="outline" onClick={() => flow.fitView({ ...FIT, duration: 400 })}>
+      <MaximizeIcon aria-hidden /> Fit to view
+    </Button>
+  );
+}
 
-      {/* Desktop and tablet: the swimlane */}
-      <div className="hidden overflow-hidden rounded-xl border border-line bg-card-soft md:flex">
-        <ol className="w-44 shrink-0 border-r border-line" aria-label="Lanes">
-          {LANES.map((l) => (
-            <li key={l.id} className="flex flex-col justify-center border-b border-line px-4 last:border-b-0" style={{ height: ROW }}>
-              <span className="font-heading text-lg leading-tight">{l.label}</span>
-              <span className="text-xs text-ink-muted">{l.note}</span>
-            </li>
-          ))}
-        </ol>
-        <div className="min-w-0 flex-1 overflow-x-auto">
-          <div ref={track} className="relative" style={{ width: STEPS.length * COL + 24, height: LANES.length * ROW }}>
-            {LANES.map((l, i) => (
-              <div key={l.id} className={cn("absolute inset-x-0 border-b border-line", i % 2 && "bg-parchment/40")} style={{ top: i * ROW, height: ROW }} />
-            ))}
-            <svg className="pointer-events-none absolute inset-0" width="100%" height="100%" aria-hidden>
-              <path d={path} fill="none" stroke="var(--line)" strokeWidth="2" strokeDasharray="5 5" />
-              {points.length > 1 && active > 0 && <path d={route(active)} fill="none" stroke="var(--forest)" strokeWidth="2.5" strokeLinejoin="round" />}
-            </svg>
-            {STEPS.map((s, i) => {
-              const row = LANES.findIndex((l) => l.id === s.lane);
-              const dim = trust && !s.trust;
+function ZoomButtons() {
+  const flow = useReactFlow();
+  return (
+    <div className="absolute right-4 bottom-4 z-10 flex overflow-hidden rounded-lg border bg-card-soft shadow-soft">
+      <button type="button" aria-label="Zoom out" onClick={() => flow.zoomOut({ duration: 200 })} className="grid size-9 place-items-center hover:bg-muted"><MinusIcon aria-hidden className="size-4" /></button>
+      <button type="button" aria-label="Zoom in" onClick={() => flow.zoomIn({ duration: 200 })} className="grid size-9 place-items-center border-l hover:bg-muted"><PlusIcon aria-hidden className="size-4" /></button>
+    </div>
+  );
+}
+
+function Key({ tab }: { tab: Tab }) {
+  return (
+    <div className="absolute bottom-4 left-4 z-10 w-48 rounded-lg border bg-card-soft/95 px-3 py-2.5 text-[0.72rem] shadow-soft">
+      <p className="mb-1.5 font-semibold">Key</p>
+      <p className="flex items-center gap-2"><span className="h-px w-6 bg-[#9aa1a9]" /> Spoilclock calls it</p>
+      <p className="flex items-center gap-2"><span className="w-6 border-t border-dashed border-[#9aa1a9]" /> An event from PayPal</p>
+      <p className="flex items-center gap-2"><span className="h-0.5 w-6 bg-turning" /> Needs a person’s approval</p>
+      {tab !== "map" ? <p className="flex items-center gap-2"><span className="h-0.5 w-6 bg-ink" /> Active now</p> : <p className="mt-1 text-muted-foreground">Hover or click any part.</p>}
+    </div>
+  );
+}
+
+function NodeDetail({ node, onClose, onSelect }: { node: ArchNode; onClose: () => void; onSelect: (id: string) => void }) {
+  const lane = LANES.find((l) => l.id === node.lane)!;
+  const links = EDGES.filter((e) => e.from === node.id || e.to === node.id);
+  return (
+    <div className="p-5">
+      <div className="flex items-start justify-between gap-3">
+        {node.logo === "agent" ? <AgentCrate mood="idle" className="w-16" /> : <NodeLogo logo={node.logo} className="size-12" />}
+        <button type="button" onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted"><XIcon aria-hidden className="size-4" /></button>
+      </div>
+      <h2 className="mt-3 text-xl font-semibold tracking-[-0.01em]">{node.title}</h2>
+      <p className="mt-1 flex flex-wrap gap-1.5">
+        <span className="rounded-md border px-2 py-0.5 text-xs">{lane.title}</span>
+        <span className="rounded-md border px-2 py-0.5 font-mono text-xs text-muted-foreground">{node.sub}</span>
+      </p>
+      <p className="mt-4 text-sm text-pretty">{node.summary}</p>
+      {node.trust ? <p className="mt-3 flex items-center gap-2 rounded-lg bg-forest-tint px-3 py-2 text-sm font-medium text-forest"><ShieldCheckIcon aria-hidden className="size-4 shrink-0" /> {node.trust}</p> : null}
+      <dl className="mt-4 divide-y rounded-lg border text-sm">
+        {node.facts.map(([k, v]) => (
+          <div key={k} className="grid grid-cols-[6.5rem_1fr] gap-3 px-3 py-2">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="min-w-0">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {links.length ? (
+        <section className="mt-5">
+          <h3 className="mb-2 text-sm font-semibold">Connections</h3>
+          <ul className="space-y-1">
+            {links.map((e) => {
+              const other = byId[e.from === node.id ? e.to : e.from];
               return (
-                <button
-                  key={s.id}
-                  ref={(el) => {
-                    cards.current[i] = el;
-                  }}
-                  onClick={() => {
-                    setPlaying(false);
-                    setActive(i);
-                  }}
-                  className={cn(
-                    "absolute z-10 w-[148px] rounded-lg border px-2.5 py-2 text-left text-[0.8rem] leading-snug transition-all",
-                    i === active ? "border-forest bg-forest text-card-soft shadow-soft" : i < active ? "border-forest/40 bg-forest-tint" : "border-line bg-card-soft hover:border-forest/50",
-                    dim && "opacity-25",
-                  )}
-                  style={{ left: 12 + i * COL, top: row * ROW + 14, minHeight: ROW - 28 }}
-                  aria-current={i === active ? "step" : undefined}
-                >
-                  <span className={cn("block text-[0.65rem] tabular-nums", i === active ? "text-card-soft/70" : "text-ink-muted")}>
-                    {i + 1}
-                    {s.trust && <Lock className="ml-1 inline size-2.5" />}
-                  </span>
-                  {s.title}
-                </button>
+                <li key={e.id}>
+                  <button type="button" onClick={() => onSelect(other.id)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+                    <span className="text-muted-foreground">{e.from === node.id ? "→" : "←"}</span>
+                    <span className="font-medium">{other.title}</span>
+                    <span className="truncate text-xs text-muted-foreground">{e.label}</span>
+                  </button>
+                </li>
               );
             })}
-            {dot && (
-              <m.span className="pointer-events-none absolute z-20 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-turning ring-4 ring-turning/25" animate={{ left: dot.x, top: dot.y - (ROW - 28) / 2 - 6 }} transition={{ type: "spring", stiffness: 140, damping: 20 }} />
-            )}
-          </div>
-        </div>
-      </div>
+          </ul>
+        </section>
+      ) : null}
+      {node.source?.length ? (
+        <section className="mt-5">
+          <h3 className="mb-2 text-sm font-semibold">Code</h3>
+          <ul className="space-y-1">
+            {node.source.map((p) => (
+              <li key={p}>
+                <a href={`${REPO}/${p}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-mono text-xs text-ink hover:underline">
+                  {p} <ExternalLinkIcon aria-hidden className="size-3" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  );
+}
 
-      {/* Phones: the steps in order */}
-      <ol className="space-y-2 md:hidden">
-        {STEPS.map((s, i) => (
-          <li key={s.id}>
-            <button onClick={() => setActive(i)} className={cn("flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left", i === active ? "border-forest bg-forest-tint" : "border-line bg-card-soft", trust && !s.trust && "opacity-30")}>
-              <span className="w-5 text-xs text-ink-muted tabular-nums">{i + 1}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs text-ink-muted">{LANES.find((l) => l.id === s.lane)!.label}</span>
-                <span className="block">{s.title}</span>
+function TrustPanel({ on, onToggle, onSelect }: { on: boolean; onToggle: (v: boolean) => void; onSelect: (id: string) => void }) {
+  return (
+    <div className="p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><ShieldCheckIcon aria-hidden className="size-5 text-forest" /> Trust</h2>
+        <button type="button" aria-pressed={on} onClick={() => onToggle(!on)} className="rounded-full border px-3 py-1 text-xs aria-pressed:border-forest/40 aria-pressed:bg-forest-tint aria-pressed:text-forest">
+          {on ? "Lit on the map" : "Light it up"}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">Everything that keeps the AI safe, lit up on the map.</p>
+      <h3 className="mt-5 text-sm font-semibold">What the AI can’t do</h3>
+      <ul className="mt-2 space-y-1">
+        {CANNOT.map((c) => (
+          <li key={c.title}>
+            <button type="button" onClick={() => onSelect(c.node)} className="flex w-full gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted">
+              <BanIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-risk" />
+              <span>
+                <span className="block text-sm font-medium">{c.title}</span>
+                <span className="block text-xs text-muted-foreground text-pretty">{c.how}</span>
               </span>
-              {s.trust && <Lock className="size-3.5 text-forest" />}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 flex gap-2.5 rounded-lg bg-forest-tint px-3 py-2.5 text-sm text-forest">
+        <CheckIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span>Layers work together: rules in code around every offer, your approval before any money is held, the dock’s decision before any is taken, a claim before every PayPal call, and verified webhooks.</span>
+      </p>
+    </div>
+  );
+}
+
+function JourneyList({ journeyId, step, onJourney, onStep }: { journeyId: string; step: number; onJourney: (id: string) => void; onStep: (i: number) => void }) {
+  const journey = JOURNEYS.find((j) => j.id === journeyId)!;
+  return (
+    <aside className="w-[19rem] shrink-0 overflow-y-auto border-r bg-card-soft p-4">
+      <h2 className="text-sm font-semibold">Journeys</h2>
+      <ul className="mt-2 space-y-1">
+        {JOURNEYS.map((j) => (
+          <li key={j.id}>
+            <button type="button" onClick={() => onJourney(j.id)} className={cn("w-full rounded-lg border px-3 py-2 text-left", j.id === journeyId ? "border-ink/20 bg-parchment-deep" : "border-transparent hover:bg-muted")}>
+              <span className="block text-sm font-medium">{j.title}</span>
+              <span className="block text-xs text-muted-foreground">{j.steps.length} steps · {j.blurb}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <ol className="mt-5 space-y-0.5 border-t pt-4">
+        {journey.steps.map((s, i) => (
+          <li key={s.title}>
+            <button type="button" onClick={() => onStep(i)} className={cn("flex w-full gap-3 rounded-lg px-2 py-2 text-left", i === step ? "bg-parchment-deep" : "hover:bg-muted")}>
+              <span className={cn("grid size-6 shrink-0 place-items-center rounded-full border text-xs", i < step && "border-ink bg-ink text-white", i === step && "border-ink bg-card-soft font-semibold text-ink")}>
+                {i < step ? <CheckIcon aria-hidden className="size-3.5" strokeWidth={3} /> : i + 1}
+              </span>
+              <span className="min-w-0">
+                <span className={cn("block text-sm", i === step && "font-medium")}>{s.title}</span>
+                <span className="block text-xs text-muted-foreground">{s.sub}</span>
+              </span>
             </button>
           </li>
         ))}
       </ol>
-
-      {/* What happens at this step */}
-      <m.section key={step.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-6 grid gap-6 rounded-xl border border-line bg-card-soft p-6 lg:grid-cols-[1.3fr_1fr]" aria-live="polite">
-        <div>
-          <p className="text-sm text-ink-muted">
-            Step {active + 1} · {lane.label}
-          </p>
-          <h2 className="mt-1 font-heading text-[1.8rem] leading-tight">{step.title}</h2>
-          <p className="mt-3 text-lg leading-relaxed text-ink/85">{step.what}</p>
-          {step.trust && (
-            <p className="mt-3 inline-flex items-center gap-2 rounded-md bg-forest-tint px-2.5 py-1 text-sm text-forest-deep">
-              <ShieldCheck className="size-4" /> A safety step
-            </p>
-          )}
-        </div>
-        <div className="space-y-4">
-          {step.call && <pre className="overflow-x-auto rounded-lg border border-line bg-parchment/60 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">{step.call}</pre>}
-          {step.measured && (
-            <p className="flex items-start gap-2 text-sm">
-              <Gauge className="mt-0.5 size-4 shrink-0 text-kraft" />
-              <span>
-                <span className="text-ink-muted">Measured on the live site: </span>
-                {step.measured}
-              </span>
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {step.files.map((f) => (
-              <FileLink key={f} path={f} />
-            ))}
-          </div>
-        </div>
-      </m.section>
-    </div>
+    </aside>
   );
 }
 
-function Parts() {
+function Playback({ steps, step, title, sub, playing, onPlay, onStep, done }: { steps: number; step: number; title: string; sub: string; playing: boolean; onPlay: () => void; onStep: (i: number) => void; done: boolean }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {PARTS.map((p) => (
-        <article key={p.name} className="flex flex-col rounded-xl border border-line bg-card-soft p-5">
-          <h2 className="font-heading text-xl">{p.name}</h2>
-          <p className="mt-2 flex-1 leading-relaxed text-ink/85">{p.does}</p>
-          <div className="mt-4">
-            <FileLink path={p.where} />
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function Cannot() {
-  return (
-    <div>
-      <p className="max-w-2xl text-lg text-ink/85">The agents propose; code and you decide. These hold whatever a model says.</p>
-      <ul className="mt-6 divide-y divide-line rounded-xl border border-line bg-card-soft">
-        {CANNOT.map((c) => (
-          <li key={c.text} className="grid gap-2 px-5 py-4 md:grid-cols-[16rem_1fr_auto] md:items-center">
-            <span className="flex items-center gap-2 font-heading text-lg">
-              <Lock className="size-4 text-forest" />
-              Can&apos;t {c.text.charAt(0).toLowerCase() + c.text.slice(1)}
-            </span>
-            <span className="text-ink/85">{c.how}</span>
-            <FileLink path={c.file} />
-          </li>
+    <div className="absolute bottom-4 left-1/2 z-10 flex w-[min(44rem,calc(100%-8rem))] -translate-x-1/2 items-center gap-4 rounded-xl border bg-card-soft px-4 py-3 shadow-soft">
+      <button type="button" onClick={onPlay} aria-label={playing ? "Pause" : "Play"} className="grid size-11 shrink-0 place-items-center rounded-full bg-forest text-white">
+        {playing ? <PauseIcon aria-hidden className="size-5" /> : <PlayIcon aria-hidden className="size-5 translate-x-px" />}
+      </button>
+      <div className="w-44 min-w-0 shrink-0">
+        <p className="text-xs text-muted-foreground">Step {step + 1} of {steps}</p>
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="truncate text-xs text-muted-foreground">{sub}</p>
+      </div>
+      <div className="flex min-w-0 flex-1 items-center">
+        {Array.from({ length: steps }, (_, i) => (
+          <span key={i} className="flex flex-1 items-center last:flex-none">
+            <button type="button" aria-label={`Step ${i + 1}`} onClick={() => onStep(i)} className={cn("size-3 shrink-0 rounded-full border-2 transition-colors", i <= step ? "border-ink bg-ink" : "border-line bg-card-soft", i === step && "ring-4 ring-wheat")} />
+            {i < steps - 1 ? <span className={cn("h-0.5 flex-1", i < step ? "bg-ink" : "bg-line")} /> : null}
+          </span>
         ))}
-      </ul>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <button type="button" aria-label="Previous step" disabled={step === 0} onClick={() => onStep(step - 1)} className="grid size-8 place-items-center rounded-md hover:bg-muted disabled:opacity-30"><ChevronLeftIcon aria-hidden className="size-4" /></button>
+        <button type="button" aria-label="Next step" disabled={done} onClick={() => onStep(step + 1)} className="grid size-8 place-items-center rounded-md hover:bg-muted disabled:opacity-30"><ChevronRightIcon aria-hidden className="size-4" /></button>
+        <AgentCrate mood={done ? "happy" : playing ? "working" : "idle"} className="ml-1 w-11" />
+      </div>
     </div>
   );
 }
 
 function Decisions() {
   return (
-    <ul className="grid gap-4 md:grid-cols-2">
-      {DECISIONS.map((d) => (
-        <li key={d.chose} className="rounded-xl border border-line bg-card-soft p-5">
-          <p className="font-heading text-xl">{d.chose}</p>
-          <p className="mt-2 leading-relaxed text-ink/85">{d.why}</p>
-        </li>
-      ))}
-    </ul>
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Decisions</h1>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">What we chose, and why.</p>
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          {DECISIONS.map((d) => (
+            <article key={d.area} className="rounded-[10px] border bg-card-soft p-4">
+              <p className="text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase">{d.area}</p>
+              <h2 className="mt-1 font-semibold">{d.chose}</h2>
+              <p className="mt-1.5 text-sm text-pretty">{d.why}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Phones: the same data as lists, with a bottom sheet for any part. */
+function MobileView({ tab, journeyId, onJourney }: { tab: Tab; journeyId: string; onJourney: (id: string) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const journey = JOURNEYS.find((j) => j.id === journeyId)!;
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-4">
+      {tab === "journeys" ? (
+        <>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {JOURNEYS.map((j) => (
+              <button key={j.id} type="button" onClick={() => onJourney(j.id)} className={cn("shrink-0 rounded-full border px-3 py-1.5 text-sm", j.id === journeyId ? "border-ink bg-parchment-deep font-medium text-ink" : "bg-card-soft")}>{j.title}</button>
+            ))}
+          </div>
+          <ol className="mt-3 space-y-2">
+            {journey.steps.map((s, i) => (
+              <li key={s.title} className="rounded-[10px] border bg-card-soft p-3">
+                <p className="flex items-center gap-2 text-sm font-medium"><span className="grid size-6 place-items-center rounded-full bg-ink text-xs text-white">{i + 1}</span>{s.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{s.sub}</p>
+                {s.call ? <p className="mt-2 rounded-md bg-parchment px-2 py-1.5 font-mono text-[0.7rem] break-words">{s.call}</p> : null}
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : tab === "trust" ? (
+        <TrustPanel on onToggle={() => {}} onSelect={setOpen} />
+      ) : (
+        <div className="space-y-3">
+          {LANES.map((l) => (
+            <section key={l.id} className="rounded-[12px] border bg-card-soft">
+              <h2 className="border-b px-4 py-2.5 text-sm font-semibold">{l.title} <span className="font-normal text-muted-foreground">· {l.blurb}</span></h2>
+              <ul className="divide-y">
+                {NODES.filter((n) => n.lane === l.id).map((n) => (
+                  <li key={n.id}>
+                    <button type="button" onClick={() => setOpen(n.id)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left">
+                      <NodeLogo logo={n.logo} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">{n.title}</span>
+                        <span className="block truncate font-mono text-[0.68rem] text-muted-foreground">{n.sub}</span>
+                      </span>
+                      <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+      <Sheet open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
+        <SheetContent side="bottom" showCloseButton={false} className="max-h-[85svh] overflow-y-auto rounded-t-2xl">
+          <SheetTitle className="sr-only">{open ? byId[open].title : "Part"}</SheetTitle>
+          {open ? <NodeDetail node={byId[open]} onClose={() => setOpen(null)} onSelect={setOpen} /> : null}
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
