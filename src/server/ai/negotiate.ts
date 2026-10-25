@@ -11,6 +11,7 @@ import { BUYERS, buyer as buyerById, limits, type Buyer } from "@/lib/buyers";
 import { arrival, cannotTake, clampAsk, clampBid, dealAllowed, type LoadFacts } from "@/lib/rules";
 import { timeLeft } from "@/lib/freshness";
 import { clock } from "@/lib/time";
+import { notesFor } from "@/server/notes";
 import { runAgent, type AgentStep } from "./agent";
 import { MODEL, openai } from "./client";
 
@@ -60,12 +61,13 @@ const Opening = z.object({
 
 async function opening(load: Load, files: { name: string; text: string | null }[]) {
   const steps: string[] = [];
+  const notes = await notesFor(load.runId, load.id);
   const started = Date.now();
   const run = await runAgent({
     client: openai(),
     model: MODEL,
     instructions: SELLER,
-    input: `The truck was rejected by ${load.rejectedBy} for "${load.reason}". ${load.pallets} pallets of ${load.crop}. ${load.rejectedBy} was paying ${usd(load.originalCents)} a pallet. The grower's floor is ${usd(load.floorCents)} a pallet. Shelf life left: ${timeLeft(load.spoilsAt.getTime() - Date.now())}. Read the paperwork and look at who can buy before you set an opening ask.`,
+    input: `The truck was rejected by ${load.rejectedBy} for "${load.reason}". ${load.pallets} pallets of ${load.crop}. ${load.rejectedBy} was paying ${usd(load.originalCents)} a pallet. The grower's floor is ${usd(load.floorCents)} a pallet. Shelf life left: ${timeLeft(load.spoilsAt.getTime() - Date.now())}. Read the paperwork and look at who can buy before you set an opening ask.${notes ? `\n\n${notes}` : ""}`,
     tools: [
       {
         name: "read_file",
@@ -241,11 +243,12 @@ async function negotiateInner(loadId: string) {
       })
       .join("\n");
     const lastRound = round === endRound;
+    const notes = await notesFor(load.runId, load.id);
     const move = await ask(
       loadId,
       "seller",
       SELLER,
-      `Round ${round} of at most ${endRound}. Your ask was ${usd(askCents)} a pallet for ${load.pallets} pallets. Floor (secret): ${usd(f.floorCents)}. ${load.rejectedBy} had been paying ${usd(load.originalCents)}. Shelf life left: ${timeLeft(f.spoilsAt - Date.now())}.\nBids:\n${board || "(none)"}\n${lastRound ? "This is the last round: accept the best bid at or above the floor if there is one." : "Accept a bid, or name your next ask."} A deal needs a buyer who takes the whole load.`,
+      `Round ${round} of at most ${endRound}. Your ask was ${usd(askCents)} a pallet for ${load.pallets} pallets. Floor (secret): ${usd(f.floorCents)}. ${load.rejectedBy} had been paying ${usd(load.originalCents)}. Shelf life left: ${timeLeft(f.spoilsAt - Date.now())}.\nBids:\n${board || "(none)"}\n${lastRound ? "This is the last round: accept the best bid at or above the floor if there is one." : "Accept a bid, or name your next ask."} A deal needs a buyer who takes the whole load.${notes ? `\n${notes}` : ""}`,
       SellerMove,
       "seller_move",
     );

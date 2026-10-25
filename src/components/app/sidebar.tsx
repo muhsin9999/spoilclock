@@ -16,7 +16,7 @@ export const NAV = [
 
 export const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
-export function Sidebar({ farm, needs, sandbox }: { farm: string; needs?: React.ReactNode; sandbox: React.ReactNode }) {
+export function Sidebar({ farm, agent, needs, sandbox }: { farm: string; agent: React.ReactNode; needs?: React.ReactNode; sandbox: React.ReactNode }) {
   const pathname = usePathname();
   return (
     <aside className="sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r border-line bg-card-soft/70 px-3 py-5 md:flex">
@@ -24,7 +24,8 @@ export function Sidebar({ farm, needs, sandbox }: { farm: string; needs?: React.
         <Logo />
       </Link>
       <p className="mt-1.5 px-2 text-xs text-ink-muted">{farm}</p>
-      <nav className="mt-7 flex flex-col gap-0.5" aria-label="App">
+      <div className="mt-5">{agent}</div>
+      <nav className="mt-5 flex flex-col gap-0.5" aria-label="App">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (

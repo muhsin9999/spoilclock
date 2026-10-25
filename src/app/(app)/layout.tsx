@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { requestNow } from "@/lib/time";
+import { AgentPanel } from "@/components/app/agent-panel";
 import { MobileTabs, MobileTop } from "@/components/app/mobile-nav";
 import { SandboxPanel } from "@/components/app/sandbox-panel";
 import { Sidebar } from "@/components/app/sidebar";
@@ -42,7 +43,7 @@ const NEEDS: Record<string, string> = {
 
 async function Chrome() {
   const now = await requestNow();
-  const { needs, sandbox } = await chromeData();
+  const { needs, sandbox, messages, notes } = await chromeData();
   const live = needs && needs.spoilsAt.getTime() > now;
   const card = live ? (
     <Link href={`/loads/${needs.id}`} className="flex items-center gap-3 rounded-xl border border-line bg-card-soft p-3 shadow-soft transition-colors hover:border-forest/40">
@@ -55,8 +56,15 @@ async function Chrome() {
   ) : undefined;
   return (
     <>
-      <Sidebar farm={`${FARM.name} · ${FARM.place}`} needs={card} sandbox={<SandboxPanel info={sandbox} />} />
-      <MobileTop sandbox={<SandboxPanel info={sandbox} compact />} />
+      <Sidebar farm={`${FARM.name} · ${FARM.place}`} agent={<AgentPanel messages={messages} notes={notes} />} needs={card} sandbox={<SandboxPanel info={sandbox} />} />
+      <MobileTop
+        sandbox={
+          <span className="flex items-center gap-2">
+            <AgentPanel messages={messages} notes={notes} compact />
+            <SandboxPanel info={sandbox} compact />
+          </span>
+        }
+      />
     </>
   );
 }

@@ -169,3 +169,30 @@ export const buyerCards = pgTable("buyer_cards", {
   last4: text("last4").notNull(),
   createdAt: at(),
 });
+
+// The farm-wide conversation with your agent ("Ask your agent", on every page).
+export const farmMessages = pgTable(
+  "farm_messages",
+  {
+    id: id(),
+    runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // user | agent
+    body: jsonb("body").notNull(), // { text, files?, steps?, seconds?, links? }
+    createdAt: at(),
+  },
+  (t) => [index("farm_messages_run").on(t.runId)],
+);
+
+// What your agent remembers: facts you told it, used in its later work (negotiations, the load chat).
+export const notes = pgTable(
+  "notes",
+  {
+    id: id(),
+    runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    buyerId: text("buyer_id"), // about one buyer, if any
+    loadId: uuid("load_id"), // about one load, if any
+    createdAt: at(),
+  },
+  (t) => [index("notes_run").on(t.runId)],
+);

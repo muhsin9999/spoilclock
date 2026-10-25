@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db, schema as s } from "@/db";
 import { BUYERS, buyer as buyerById } from "@/lib/buyers";
 import { timeLeft } from "@/lib/freshness";
+import { notesFor } from "@/server/notes";
 import { MODEL, openai } from "./client";
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -40,6 +41,7 @@ export async function chat(loadId: string, text: string, fileNames: string[], im
     db.select().from(s.messages).where(eq(s.messages.loadId, loadId)).orderBy(desc(s.messages.createdAt)).limit(12),
   ]);
   const deal = deals[0];
+  const notes = await notesFor(load.runId, loadId);
   const locked = !!deal && deal.status !== "ready";
   const context = [
     `Load: ${load.pallets} pallets of ${load.crop}, ${load.grade}, ${load.softPct}% soft, ${load.pulpF}°F. Rejected by ${load.rejectedBy} (${load.reason}); they were paying ${usd(load.originalCents)} a pallet.`,
@@ -50,6 +52,7 @@ export async function chat(loadId: string, text: string, fileNames: string[], im
       return `${b.name} (${b.kind})${last ? ` last bid ${usd(last.perPalletCents)}` : ""}${st ? `, ${st.status}${st.note ? `: ${st.note}` : ""}` : ""}`;
     }).join("; ")}.`,
     deal ? `Deal: ${buyerById(deal.buyerId)?.name} at ${usd(deal.perPalletCents)} a pallet, ${deal.status === "ready" ? "waiting for the grower's approval" : `payment ${deal.status}`}.` : "No deal yet.",
+    notes,
     `Files: ${files.map((f) => `\n--- ${f.name}${fileNames.includes(f.name) ? " (just attached)" : ""} ---\n${(f.text ?? "(no text)").slice(0, 4000)}`).join("")}`,
     `Recent chat (newest last):\n${recent
       .reverse()

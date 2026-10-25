@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { CreditCard, Lock } from "lucide-react";
+import { Brain, CreditCard, Lock } from "lucide-react";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { db, schema as s } from "@/db";
 import { BlockToggle } from "@/components/app/block-toggle";
 import { PageHeader } from "@/components/app/top-bar";
@@ -23,6 +24,7 @@ export default function BuyersPage() {
 async function Buyers() {
   await connection();
   const [{ deals }, cards, run] = await Promise.all([history(), db.select().from(s.buyerCards), currentRun()]);
+  const notes = await db.select().from(s.notes).where(and(eq(s.notes.runId, run.id), isNotNull(s.notes.buyerId)));
   return (
     <div className="flex min-h-svh flex-col">
       <PageHeader title="Buyers" subtitle="The buyer agents your agent negotiates with. Simulated businesses, each with its own private limits." />
@@ -70,6 +72,17 @@ async function Buyers() {
               <p className="mt-3 flex items-center gap-2 text-xs text-ink-muted">
                 <Lock className="size-3.5" /> Its price limits are private to its own agent.
               </p>
+              {notes
+                .filter((n) => n.buyerId === b.id)
+                .map((n) => (
+                  <p key={n.id} className="mt-2 flex items-start gap-2 rounded-lg border border-line px-3 py-2 text-sm">
+                    <Brain className="mt-0.5 size-4 shrink-0 text-kraft" />
+                    <span>
+                      <span className="block text-xs text-ink-muted">You told your agent</span>
+                      {n.text}
+                    </span>
+                  </p>
+                ))}
               <dl className="mt-5 grid grid-cols-3 gap-2 border-t border-line pt-4 text-center">
                 {[
                   ["Deals", String(won.length)],
