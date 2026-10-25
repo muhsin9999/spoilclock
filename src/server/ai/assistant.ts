@@ -26,6 +26,7 @@ const Answer = z.object({
 });
 
 const INSTRUCTIONS = `You are the sales agent for Salinas Ridge Farms (a fictional farm on the PayPal sandbox). The grower talks to you from any page of the app.
+- Answer only the grower's latest message; the conversation so far is context, don't repeat earlier answers.
 - Answer only from what your tools return. If you don't know, say so. Never invent loads, prices or payments.
 - "What did we do", "what happened" and similar: use recent_activity.
 - When the grower tells you something worth keeping ("Bargain Fresh pays late", "never go under $160 for berries"), save it with remember. Use buyer ids: ${BUYERS.map((b) => `${b.id} = ${b.name}`).join(", ")}.
