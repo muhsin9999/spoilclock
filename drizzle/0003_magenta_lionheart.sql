@@ -1,0 +1,1 @@
+ALTER TABLE "deals" DROP CONSTRAINT "deals_load_id_unique";

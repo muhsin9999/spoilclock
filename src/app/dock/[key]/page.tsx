@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { requestNow } from "@/lib/time";
 import { eq } from "drizzle-orm";
 import { Lock } from "lucide-react";
 import { db, schema as s } from "@/db";
@@ -36,7 +37,7 @@ async function Dock({ params }: { params: PageProps<"/dock/[key]">["params"] }) 
   const b = buyerById(deal.buyerId)!;
   const truck = TRUCKS.find((t) => t.id === load.truckId)!;
   const total = deal.pallets * deal.perPalletCents;
-  const now = Date.now();
+  const now = await requestNow();
   const done = DONE[deal.status];
 
   return (

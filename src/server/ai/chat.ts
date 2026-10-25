@@ -27,7 +27,7 @@ const INSTRUCTIONS = `You are the grower's sales agent at Salinas Ridge Farms, t
 - Short, calm, plain words. No emoji.`;
 
 /** Handles one message from the grower. Returns true if the agent should (re)start negotiating. */
-export async function chat(loadId: string, text: string, fileNames: string[]) {
+export async function chat(loadId: string, text: string, fileNames: string[], images: { type: string; data: string }[] = []) {
   const [load] = await db.select().from(s.loads).where(eq(s.loads.id, loadId));
   if (!load) throw new Error("load not found");
   await db.insert(s.messages).values({ loadId, kind: "user", body: { text, files: fileNames } });
@@ -36,7 +36,7 @@ export async function chat(loadId: string, text: string, fileNames: string[]) {
     db.select({ name: s.files.name, text: s.files.text }).from(s.files).where(eq(s.files.loadId, loadId)),
     db.select().from(s.offers).where(eq(s.offers.loadId, loadId)).orderBy(asc(s.offers.round)),
     db.select().from(s.buyerStates).where(eq(s.buyerStates.loadId, loadId)),
-    db.select().from(s.deals).where(eq(s.deals.loadId, loadId)),
+    db.select().from(s.deals).where(eq(s.deals.loadId, loadId)).orderBy(desc(s.deals.createdAt)),
     db.select().from(s.messages).where(eq(s.messages.loadId, loadId)).orderBy(desc(s.messages.createdAt)).limit(12),
   ]);
   const deal = deals[0];
@@ -58,7 +58,21 @@ export async function chat(loadId: string, text: string, fileNames: string[]) {
   ].join("\n");
 
   const started = Date.now();
-  const res = await openai().responses.parse({ model: MODEL, instructions: INSTRUCTIONS, input: `${context}\n\nThe grower says: "${text}"`, reasoning: { effort: "low" }, text: { format: zodTextFormat(Reply, "reply") } });
+  const res = await openai().responses.parse({
+    model: MODEL,
+    instructions: INSTRUCTIONS,
+    input: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: `${context}\n\nThe grower says: "${text}"` },
+          ...images.map((im) => ({ type: "input_image" as const, image_url: `data:${im.type};base64,${im.data}`, detail: "auto" as const })),
+        ],
+      },
+    ],
+    reasoning: { effort: "low" },
+    text: { format: zodTextFormat(Reply, "reply") },
+  });
   await db.insert(s.aiCalls).values({ loadId, agent: "chat", model: MODEL, inputTokens: res.usage?.input_tokens ?? 0, outputTokens: res.usage?.output_tokens ?? 0, ms: Date.now() - started });
   const r = res.output_parsed;
   if (!r) throw new Error("chat returned no answer");
@@ -73,15 +87,23 @@ export async function chat(loadId: string, text: string, fileNames: string[]) {
       if (next !== floor) rules.push(`Floor changed · ${usd(floor)} → ${usd(next)} a pallet`);
       floor = next;
     }
-    for (const id of r.exclude_buyers) if (buyerById(id) && !excluded.includes(id)) (excluded = [...excluded, id]), rules.push(`Rule changed · ${buyerById(id)!.name} excluded`);
-    for (const id of r.include_buyers) if (excluded.includes(id)) (excluded = excluded.filter((x) => x !== id)), rules.push(`Rule changed · ${buyerById(id)!.name} allowed again`);
+    for (const id of r.exclude_buyers) {
+      if (!buyerById(id) || excluded.includes(id)) continue;
+      excluded = [...excluded, id];
+      rules.push(`Rule changed · ${buyerById(id)!.name} excluded`);
+    }
+    for (const id of r.include_buyers) {
+      if (!excluded.includes(id)) continue;
+      excluded = excluded.filter((x) => x !== id);
+      rules.push(`Rule changed · ${buyerById(id)!.name} allowed again`);
+    }
   }
 
   // A ready deal that no longer fits the rules is withdrawn and the agent goes back to the table.
   const breaksDeal = !!deal && deal.status === "ready" && (excluded.includes(deal.buyerId) || deal.perPalletCents < floor);
   await db.transaction(async (tx) => {
     if (rules.length) await tx.update(s.loads).set({ floorCents: floor, excluded, ...(breaksDeal && { status: "reopened" }) }).where(eq(s.loads.id, loadId));
-    if (breaksDeal) await tx.delete(s.deals).where(eq(s.deals.loadId, loadId));
+    if (breaksDeal) await tx.delete(s.deals).where(eq(s.deals.id, deal.id));
     for (const rule of rules) await tx.insert(s.messages).values({ loadId, kind: "rule", body: { text: rule } });
     await tx.insert(s.messages).values({ loadId, kind: "agent", body: { text: r.reply } });
   });

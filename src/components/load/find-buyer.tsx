@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { startNegotiation } from "@/app/loads/[id]/actions";
+import { startNegotiation } from "@/app/(app)/loads/[id]/actions";
 import { Button } from "@/components/ui/button";
 
 export function FindBuyerButton({ loadId, again }: { loadId: string; again?: boolean }) {

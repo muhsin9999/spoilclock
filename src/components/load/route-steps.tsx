@@ -5,7 +5,9 @@ const STEPS = ["Rejected", "Finding a buyer", "Payment held", "At the new dock",
 
 /** Where this load is: done steps filled, the current one ringed, the rest hollow. */
 export function RouteSteps({ current, detail }: { current: number; detail?: Partial<Record<number, string>> }) {
+  const step = Math.min(current, STEPS.length - 1);
   return (
+    <div>
     <ol className="grid grid-cols-5" aria-label="Where this load is">
       {STEPS.map((s, i) => {
         const done = i < current;
@@ -25,7 +27,7 @@ export function RouteSteps({ current, detail }: { current: number; detail?: Part
               </span>
               {i < STEPS.length - 1 && <span className={cn("mx-2 h-0.5 flex-1 rounded-full", done ? "bg-forest/60" : "bg-line")} />}
             </div>
-            <div className="mt-2 pr-4">
+            <div className="mt-2 hidden pr-4 sm:block">
               <span className={cn("block font-heading text-[1.05rem] leading-tight", !done && !now && "text-ink-muted")}>{s}</span>
               {detail?.[i] && <span className="block truncate text-sm text-ink-muted">{detail[i]}</span>}
             </div>
@@ -33,5 +35,14 @@ export function RouteSteps({ current, detail }: { current: number; detail?: Part
         );
       })}
     </ol>
+    {/* Phones: the dots above, and one line for where the load is now. */}
+    <p className="mt-3 sm:hidden">
+      <span className="text-sm text-ink-muted">
+        {current >= STEPS.length ? "Done" : `Step ${step + 1} of ${STEPS.length}`} ·{" "}
+      </span>
+      <span className="font-heading text-lg">{current >= STEPS.length ? "Paid" : STEPS[step]}</span>
+      {detail?.[current >= STEPS.length ? STEPS.length - 1 : step] && <span className="block text-sm text-ink-muted">{detail[current >= STEPS.length ? STEPS.length - 1 : step]}</span>}
+    </p>
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { BadgeCheck, Clock3 } from "lucide-react";
 import { Stamp } from "@/components/brand/stamp";
 import { buyer as buyerById } from "@/lib/buyers";
-import { clock } from "@/server/ai/negotiate";
+import { clock } from "@/lib/time";
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 

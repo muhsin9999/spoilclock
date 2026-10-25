@@ -8,11 +8,11 @@ export type Buyer = {
   name: string;
   kind: string;
   color: string;
-  driveMin: number; // from FreshMart DC, where Truck 14 is waiting
+  driveMin: number; // from the receiver's dock where the rejected truck is waiting
   unloadMin: number;
   brief: {
-    maxCents: number; // per pallet, never above
-    openCents: number; // first bid
+    maxShare: number; // never pays more than this share of what the original buyer was paying
+    openShare: number; // first bid, as a share of it
     capacity: number; // pallets it can take
     maxSoftPct?: number; // refuses softer fruit
     dockHours?: [number, number]; // Pacific [open, close) for arrivals; none = receives around the clock
@@ -28,7 +28,7 @@ export const BUYERS: Buyer[] = [
     color: "var(--forest)",
     driveMin: 55,
     unloadMin: 45,
-    brief: { maxCents: 180_00, openCents: 140_00, capacity: 20, style: "A juice plant. Looks don't matter to you, soundness and sugar do. Patient and fair; you raise in steady steps when the seller moves too." },
+    brief: { maxShare: 0.9, openShare: 0.7, capacity: 20, style: "A juice plant. Looks don't matter to you, soundness and sugar do. Patient and fair; you raise in steady steps when the seller moves too." },
   },
   {
     id: "bargain",
@@ -37,7 +37,7 @@ export const BUYERS: Buyer[] = [
     color: "var(--kraft)",
     driveMin: 80,
     unloadMin: 40,
-    brief: { maxCents: 165_00, openCents: 130_00, capacity: 16, maxSoftPct: 8, style: "A discount grocery chain. A hard haggler who moves in small steps and likes to remind the seller the fruit was rejected." },
+    brief: { maxShare: 0.82, openShare: 0.65, capacity: 16, maxSoftPct: 8, style: "A discount grocery chain. A hard haggler who moves in small steps and likes to remind the seller the fruit was rejected." },
   },
   {
     id: "coastal",
@@ -46,8 +46,14 @@ export const BUYERS: Buyer[] = [
     color: "#8f8a76",
     driveMin: 25,
     unloadMin: 30,
-    brief: { maxCents: 135_00, openCents: 120_00, capacity: 8, dockHours: [8, 16], style: "A regional food bank on a tight budget. Warm and direct. You can only store 8 pallets today." },
+    brief: { maxShare: 0.67, openShare: 0.6, capacity: 8, dockHours: [8, 16], style: "A regional food bank on a tight budget. Warm and direct. You can only store 8 pallets today." },
   },
 ];
 
 export const buyer = (id: string) => BUYERS.find((b) => b.id === id);
+
+/** A buyer agent's private limits for one load, in cents per pallet. */
+export function limits(b: Buyer, originalCents: number) {
+  const r = (x: number) => Math.round((originalCents * x) / 100) * 100;
+  return { maxCents: r(b.brief.maxShare), openCents: r(b.brief.openShare) };
+}

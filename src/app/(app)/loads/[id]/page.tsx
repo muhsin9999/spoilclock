@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { FileText, Sheet } from "lucide-react";
 import { LiveRefresh } from "@/components/app/live-refresh";
-import { TopBar } from "@/components/app/top-bar";
+import { AgentCrate } from "@/components/brand/agent-crate";
+import { FloorEdit } from "@/components/load/floor-edit";
+import { loadState } from "@/server/history";
+import { PageHeader } from "@/components/app/top-bar";
 import { FreshnessRing } from "@/components/brand/freshness-ring";
 import { Landscape } from "@/components/brand/landscape";
 import { Stamp } from "@/components/brand/stamp";
@@ -19,7 +20,7 @@ import { RouteSteps } from "@/components/load/route-steps";
 import { BUYERS, buyer as buyerById } from "@/lib/buyers";
 import { TRUCKS } from "@/lib/demo-day";
 import { timeLeft } from "@/lib/freshness";
-import { clock } from "@/server/ai/negotiate";
+import { clock, requestNow } from "@/lib/time";
 import { getLoad, type LoadView } from "@/server/load";
 
 export const metadata = { title: "Load" };
@@ -40,10 +41,12 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const view = await getLoad(id);
   if (!view) notFound();
-  const now = Date.now();
-  const { load, offers, states, deal, messages, files, events, card } = view;
+  const now = await requestNow();
+  const { load, offers, states, deal, messages, events, card } = view;
   const settledOrHeld = deal && deal.status !== "ready";
   const truck = TRUCKS.find((t) => t.id === load.truckId)!;
+  const state = loadState(load, now);
+  const spoiled = state === "spoiled";
   const working = load.status === "negotiating";
   const rounds = offers.length ? Math.max(...offers.map((o) => o.round)) : 0;
 
@@ -53,19 +56,13 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
         active={working || deal?.status === "held" || deal?.status === "settling" || (!!settledOrHeld && events.length < 2)}
         everyMs={working ? 1500 : 3000}
       />
-      <TopBar now={now}>
-        <nav className="hidden items-center gap-2 text-ink-muted md:flex" aria-label="Breadcrumb">
-          <Link href="/today" className="hover:text-ink">Today</Link>
-          <span>›</span>
-          <span className="text-ink">{truck.name}</span>
-        </nav>
-      </TopBar>
-      <main className="mx-auto w-full max-w-[1500px] flex-1 px-6 md:px-10">
-        <h1 className="font-heading text-[2.6rem] leading-none tracking-tight">{truck.name}: rejected load</h1>
-        <p className="mt-2 text-lg text-ink-muted">
-          {load.crop} · {load.pallets} pallets · rejected by {load.rejectedBy} for {load.reason.toLowerCase()}
-        </p>
-        <div className="mt-7">
+      <PageHeader
+        crumbs={[{ href: "/loads", label: "Loads" }]}
+        title={`${truck.name}: rejected load`}
+        subtitle={`${load.crop} · ${load.pallets} pallets · rejected by ${load.rejectedBy} for ${load.reason.toLowerCase()}`}
+      />
+      <main className="w-full max-w-[1500px] flex-1 px-6 md:px-10">
+        <div>
           <RouteSteps
             current={STEP[load.status] ?? 1}
             detail={{
@@ -78,10 +75,12 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
           />
         </div>
 
-        <div className="mt-7 grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_23rem]">
+        <div className="mt-7">
           <LoadFacts view={view} now={now} />
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
 
-          <section className="space-y-5 rounded-xl border border-line bg-card-soft p-6 shadow-soft" aria-labelledby="neg">
+          <section className="min-w-0 space-y-5 rounded-xl border border-line bg-card-soft p-4 shadow-soft sm:p-6" aria-labelledby="neg">
             <div className="flex items-baseline justify-between gap-4">
               <h2 id="neg" className="font-heading text-2xl">Offers per pallet</h2>
               {rounds > 0 && <span className="text-sm text-ink-muted">{rounds} {rounds === 1 ? "round" : "rounds"}{working && " · live"}</span>}
@@ -93,7 +92,7 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
                 floor={load.floorCents / 100}
                 deal={deal ? { buyerId: deal.buyerId, perPallet: deal.perPalletCents / 100 } : undefined}
               />
-            ) : (
+            ) : spoiled ? null : (
               <Start view={view} working={working} />
             )}
             {(offers.length > 0 || working) && <Buyers buyers={BUYERS} offers={offers} states={states} live={working} />}
@@ -112,7 +111,13 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
                 marginBeforeSpoil={timeLeft(load.spoilsAt.getTime() - deal.arriveAt.getTime())}
               />
             )}
-            {(load.status === "no_deal" || load.status === "reopened") && offers.length > 0 && (
+            {spoiled && (
+              <div className="flex items-center gap-4 rounded-xl border border-spoiling/40 bg-spoiling-tint/50 p-5">
+                <AgentCrate mood="worried" className="w-20 shrink-0" />
+                <p>The clock ran out before the load was sold, so it can&apos;t be offered any more. Start a new day on Today for another load.</p>
+              </div>
+            )}
+            {!spoiled && (load.status === "no_deal" || load.status === "reopened") && offers.length > 0 && (
               <div className="flex items-center justify-between gap-4 rounded-xl border border-line p-5">
                 <p className="text-ink-muted">{load.status === "reopened" ? "You changed the rules, so the deal was withdrawn." : "No buyer met your floor for the whole load."}</p>
                 <FindBuyerButton loadId={load.id} again />
@@ -120,8 +125,8 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
             )}
           </section>
 
-          <div className="lg:col-span-2 xl:col-span-1">
-            <LoadChat loadId={load.id} truck={truck.name} messages={messages as ChatMessage[]} working={working} />
+          <div className="xl:sticky xl:top-5 xl:self-start">
+            <LoadChat loadId={load.id} truck={truck.name} messages={messages as ChatMessage[]} working={working} closed={spoiled} />
           </div>
         </div>
       </main>
@@ -134,13 +139,13 @@ function Start({ view, working }: { view: LoadView; working: boolean }) {
   if (working)
     return (
       <div className="grid place-items-center gap-3 py-12 text-center">
-        <Image src="/art/crate.webp" alt="" width={120} height={123} className="animate-bounce [animation-duration:1.6s]" />
+        <AgentCrate mood="working" className="w-40" />
         <p className="shimmer-text font-heading text-xl">Reading the paperwork and calling buyers…</p>
       </div>
     );
   return (
     <div className="grid items-center gap-6 py-6 md:grid-cols-[auto_1fr]">
-      <Image src="/art/crate.webp" alt="" width={150} height={153} />
+      <AgentCrate mood="idle" followCursor className="w-44" />
       <div>
         <p className="font-heading text-2xl leading-snug">Your agent is ready to sell these {view.load.crop.toLowerCase()}.</p>
         <p className="mt-2 text-ink-muted">
@@ -158,37 +163,41 @@ const FILE_ICON: Record<string, typeof FileText> = { "text/csv": Sheet };
 
 function LoadFacts({ view, now }: { view: LoadView; now: number }) {
   const { load, files } = view;
+  const sold = view.deal && (view.deal.status === "captured" || view.deal.status === "partial");
   return (
-    <aside className="space-y-5 rounded-xl border border-line bg-card-soft p-5 shadow-soft">
-      <div className="relative grid place-items-center pt-4">
-        <Stamp className="absolute -top-1 -left-1 z-10">Rejected</Stamp>
+    <aside className="grid gap-6 rounded-xl border border-line bg-card-soft p-5 shadow-soft sm:grid-cols-[auto_1fr] xl:grid-cols-[auto_minmax(14rem,1fr)_minmax(17rem,1.2fr)_minmax(12rem,1fr)] xl:items-center">
+      <div className="relative grid place-items-center pt-3 sm:row-span-3 xl:row-span-1">
+        <Stamp className="absolute -top-1 -left-1 z-10">{spoiledLabel(load)}</Stamp>
         <FreshnessRing
           spoilsAt={load.spoilsAt.getTime()}
           totalMs={load.spoilsAt.getTime() - load.rejectedAt.getTime()}
           now={now}
-          stoppedAt={(view.deal?.status === "captured" || view.deal?.status === "partial") && view.deal.settledAt ? view.deal.settledAt.getTime() : undefined}
+          stoppedAt={sold && view.deal?.settledAt ? view.deal.settledAt.getTime() : undefined}
+          className="size-44"
         />
       </div>
-      <dl className="grid grid-cols-3 gap-2 border-t border-line pt-4 text-center">
+      <dl className="grid grid-cols-3 gap-2 text-center xl:border-l xl:border-line xl:pl-6">
         {[
           ["Grade", load.grade],
           ["Soft", `${load.softPct}%`],
           ["Pulp temp", `${load.pulpF}°F`],
         ].map(([k, v]) => (
           <div key={k}>
-            <dd className="font-heading text-lg">{v}</dd>
+            <dd className="font-heading text-xl whitespace-nowrap">{v}</dd>
             <dt className="text-xs text-ink-muted">{k}</dt>
           </div>
         ))}
       </dl>
-      <dl className="space-y-2 border-t border-line pt-4 text-sm">
-        <div className="flex justify-between">
+      <dl className="space-y-2 text-sm xl:border-l xl:border-line xl:pl-6">
+        <div className="flex justify-between gap-3">
           <dt className="text-ink-muted">{load.rejectedBy} was paying</dt>
-          <dd className="tabular-nums">${load.originalCents / 100} a pallet</dd>
+          <dd className="whitespace-nowrap tabular-nums">${load.originalCents / 100} a pallet</dd>
         </div>
-        <div className="flex justify-between">
+        <div className="flex items-center justify-between gap-3">
           <dt className="text-ink-muted">Your floor</dt>
-          <dd className="tabular-nums">${load.floorCents / 100} a pallet</dd>
+          <dd>
+            <FloorEdit loadId={load.id} dollars={load.floorCents / 100} locked={!!view.deal && !["ready", "voided"].includes(view.deal.status)} />
+          </dd>
         </div>
         {load.excluded.length > 0 && (
           <div className="flex justify-between gap-3">
@@ -197,7 +206,7 @@ function LoadFacts({ view, now }: { view: LoadView; now: number }) {
           </div>
         )}
       </dl>
-      <div className="border-t border-line pt-4">
+      <div className="xl:border-l xl:border-line xl:pl-6">
         <h2 className="mb-2 text-sm text-ink-muted">Files</h2>
         <ul className="space-y-1.5">
           {files.map((f) => {
@@ -205,8 +214,8 @@ function LoadFacts({ view, now }: { view: LoadView; now: number }) {
             return (
               <li key={f.id}>
                 <a href={`/api/files/${f.id}`} target="_blank" className="flex items-center gap-2 text-sm hover:text-forest">
-                  <Icon className="size-4 text-kraft" />
-                  {f.name}
+                  <Icon className="size-4 shrink-0 text-kraft" />
+                  <span className="truncate">{f.name}</span>
                   {f.sample && <span className="text-xs text-ink-muted">sample</span>}
                 </a>
               </li>
@@ -216,4 +225,8 @@ function LoadFacts({ view, now }: { view: LoadView; now: number }) {
       </div>
     </aside>
   );
+}
+
+function spoiledLabel(load: { status: string; spoilsAt: Date }) {
+  return loadState(load) === "spoiled" ? "Spoiled" : "Rejected";
 }

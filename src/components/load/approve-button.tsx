@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { approveDeal } from "@/app/loads/[id]/actions";
+import { approveDeal } from "@/app/(app)/loads/[id]/actions";
 import { Button } from "@/components/ui/button";
 
 export function ApproveButton({ loadId }: { loadId: string }) {

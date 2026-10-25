@@ -19,16 +19,22 @@ const KIND_LABEL: Record<Trip["kind"], string> = {
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-type Props = { trucks: Truck[]; trips: Trip[]; window: { start: number; end: number }; timeZone: string };
+type Props = { trucks: Truck[]; trips: Trip[]; window: { start: number; end: number }; timeZone: string; onTripClick?: (id: string) => void };
 
-export function Board({ trucks, trips, window: win, timeZone }: Props) {
+export function Board({ trucks, trips, window: win, timeZone, onTripClick }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const click = useRef(onTripClick);
+  useEffect(() => {
+    click.current = onTripClick;
+  }, [onTripClick]);
 
   useEffect(() => {
     let scheduler: BryntumScheduler | undefined;
     let cancelled = false;
     loadBryntum().then(({ Scheduler }) => {
       if (cancelled || !host.current) return;
+      // Phones: a narrow truck column and a timeline that scrolls sideways inside its card.
+      const narrow = host.current.clientWidth < 640;
       scheduler = new Scheduler({
         appendTo: host.current,
         project: { timeZone },
@@ -37,13 +43,14 @@ export function Board({ trucks, trips, window: win, timeZone }: Props) {
         endDate: new Date(win.end),
         rowHeight: 96,
         barMargin: 22,
-        forceFit: true,
+        forceFit: !narrow,
+        visibleDate: narrow ? { date: new Date(), block: "center" } : undefined,
         eventStyle: null,
         zoomOnMouseWheel: false,
         zoomOnTimeAxisDoubleClick: false,
         viewPreset: {
           base: "hourAndDay",
-          tickWidth: 88,
+          tickWidth: narrow ? 64 : 88,
           headers: [{ unit: "hour", dateFormat: "h A" }],
         },
         features: {
@@ -63,7 +70,7 @@ export function Board({ trucks, trips, window: win, timeZone }: Props) {
           {
             text: "",
             field: "name",
-            width: 230,
+            width: narrow ? 118 : 230,
             htmlEncode: false,
             renderer: ({ record }: { record: { getData(k: string): unknown } }) =>
               `<div class="sc-truck"><div class="sc-truck-name">${esc(String(record.getData("name")))}</div><div class="sc-truck-load">${esc(String(record.getData("load")))}</div></div>`,
@@ -79,6 +86,7 @@ export function Board({ trucks, trips, window: win, timeZone }: Props) {
           place: t.place,
           cls: `sc-trip sc-${t.kind}`,
         })),
+        listeners: { eventClick: ({ eventRecord }: { eventRecord: { id: string | number } }) => click.current?.(String(eventRecord.id)) },
         eventRenderer: ({ eventRecord }: { eventRecord: { name: string; getData(k: string): unknown } }) =>
           `<span class="sc-dot"></span><span class="sc-trip-text"><b>${esc(eventRecord.name)}</b><span>${esc(String(eventRecord.getData("place")))}</span></span>`,
       });

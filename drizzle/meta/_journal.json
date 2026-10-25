@@ -15,6 +15,20 @@
       "when": 1792921575057,
       "tag": "0001_adorable_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792940459570,
+      "tag": "0002_nervous_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792940851804,
+      "tag": "0003_magenta_lionheart",
+      "breakpoints": true
     }
   ]
 }

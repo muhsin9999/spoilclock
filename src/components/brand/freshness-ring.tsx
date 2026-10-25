@@ -15,6 +15,8 @@ type Props = {
   size?: "sm" | "lg";
   /** When the load was sold: the clock stops there and shows the time to spare. */
   stoppedAt?: number;
+  /** Drive the clock from outside (the landing page's fast-forward replay). */
+  clockAt?: number;
   className?: string;
 };
 
@@ -32,9 +34,9 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number) {
  * fresh green at the start and the current freshness colour at its end.
  * `sm` puts the leaf hand inside (top bar); `lg` puts the time inside (load cards).
  */
-export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", stoppedAt, className }: Props) {
+export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", stoppedAt, clockAt, className }: Props) {
   const ticking = useNow(serverNow, size === "sm" ? 15_000 : 1000);
-  const now = stoppedAt ?? ticking;
+  const now = clockAt ?? stoppedAt ?? ticking;
   const left = Math.max(0, spoilsAt - now);
   const f = Math.min(1, left / totalMs);
   const r = size === "sm" ? 19 : 20.5;

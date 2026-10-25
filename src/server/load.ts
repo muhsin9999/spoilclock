@@ -1,6 +1,6 @@
 // Reads one load with everything its page shows. Only the visitor's own run's loads are visible.
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db, schema as s } from "@/db";
 import { runId } from "./run";
 
@@ -11,7 +11,7 @@ export async function getLoad(loadId: string) {
   const [offers, states, deals, messages, files] = await Promise.all([
     db.select().from(s.offers).where(eq(s.offers.loadId, loadId)).orderBy(asc(s.offers.round), asc(s.offers.createdAt)),
     db.select().from(s.buyerStates).where(eq(s.buyerStates.loadId, loadId)),
-    db.select().from(s.deals).where(eq(s.deals.loadId, loadId)),
+    db.select().from(s.deals).where(eq(s.deals.loadId, loadId)).orderBy(desc(s.deals.createdAt)),
     db.select().from(s.messages).where(eq(s.messages.loadId, loadId)).orderBy(asc(s.messages.createdAt)),
     db.select({ id: s.files.id, name: s.files.name, type: s.files.type, sample: s.files.sample }).from(s.files).where(eq(s.files.loadId, loadId)).orderBy(asc(s.files.createdAt)),
   ]);

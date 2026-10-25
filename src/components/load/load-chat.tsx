@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ChevronDown, FileText, SendHorizontal } from "lucide-react";
+import { ChevronDown, FileText, Paperclip, SendHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
-import { sendMessage } from "@/app/loads/[id]/actions";
+import { sendMessage } from "@/app/(app)/loads/[id]/actions";
+import { AgentCrate } from "@/components/brand/agent-crate";
 import { cn } from "@/lib/utils";
 
 export type ChatMessage = { id: string; kind: string; body: { text?: string; files?: string[]; steps?: string[]; seconds?: number } };
@@ -12,9 +12,10 @@ export type ChatMessage = { id: string; kind: string; body: { text?: string; fil
 const SUGGESTIONS = ["Why did FreshMart reject it?", "Don't sell to Bargain Fresh", "Raise my floor to $160"];
 
 /** This load's chat with your agent. Its work folds into the conversation; rule changes show as a line. */
-export function LoadChat({ loadId, truck, messages, working }: { loadId: string; truck: string; messages: ChatMessage[]; working: boolean }) {
+export function LoadChat({ loadId, truck, messages, working, closed }: { loadId: string; truck: string; messages: ChatMessage[]; working: boolean; closed?: boolean }) {
   const [text, setText] = useState("");
-  const [pending, setPending] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [pending, setPending] = useState<{ text: string; file?: string } | null>(null);
   const [isPending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
 
@@ -24,11 +25,15 @@ export function LoadChat({ loadId, truck, messages, working }: { loadId: string;
 
   const send = (value: string) => {
     const v = value.trim();
-    if (!v || isPending) return;
-    setPending(v);
+    if ((!v && !file) || isPending) return;
+    const fd = new FormData();
+    fd.set("text", v);
+    if (file) fd.set("file", file);
+    setPending({ text: v || `I've attached ${file!.name}.`, file: file?.name });
     setText("");
+    setFile(null);
     start(async () => {
-      const r = await sendMessage(loadId, v);
+      const r = await sendMessage(loadId, fd);
       setPending(null);
       if (!r.ok) {
         toast.error(r.error);
@@ -40,7 +45,7 @@ export function LoadChat({ loadId, truck, messages, working }: { loadId: string;
   return (
     <section className="flex h-full max-h-[52rem] min-h-[34rem] flex-col rounded-xl border border-line bg-card-soft shadow-soft" aria-label={`Chat about ${truck}`}>
       <header className="flex items-center gap-3 border-b border-line px-5 py-4">
-        <Image src="/art/crate-sm.webp" alt="" width={36} height={37} className={cn(working && "animate-bounce [animation-duration:1.6s]")} />
+        <AgentCrate mood={isPending ? "thinking" : working ? "working" : "idle"} className="w-14" />
         <div>
           <h2 className="font-heading text-xl leading-none">Your agent</h2>
           <p className="mt-1 text-xs text-ink-muted">{working ? "Talking to buyers…" : `Selling ${truck} for you · tell it anything`}</p>
@@ -56,7 +61,7 @@ export function LoadChat({ loadId, truck, messages, working }: { loadId: string;
         {pending && (
           <>
             <li>
-              <Message m={{ id: "pending", kind: "user", body: { text: pending } }} />
+              <Message m={{ id: "pending", kind: "user", body: { text: pending.text, files: pending.file ? [pending.file] : undefined } }} />
             </li>
             <li className="shimmer-text text-sm">Your agent is thinking…</li>
           </>
@@ -72,6 +77,15 @@ export function LoadChat({ loadId, truck, messages, working }: { loadId: string;
           ))}
         </div>
       )}
+      {file && (
+        <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-1.5 text-sm">
+          <FileText className="size-4 text-ink-muted" />
+          <span className="min-w-0 flex-1 truncate">{file.name}</span>
+          <button type="button" onClick={() => setFile(null)} aria-label="Remove the file" className="text-ink-muted hover:text-ink">
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
       <form
         className="flex items-center gap-2 border-t border-line p-3"
         onSubmit={(e) => {
@@ -79,6 +93,10 @@ export function LoadChat({ loadId, truck, messages, working }: { loadId: string;
           send(text);
         }}
       >
+        <label className={cn("grid size-10 shrink-0 cursor-pointer place-items-center rounded-lg text-ink-muted hover:bg-muted", closed && "pointer-events-none opacity-40")} aria-label="Attach a file">
+          <Paperclip className="size-5" />
+          <input type="file" className="sr-only" accept="application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </label>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -87,7 +105,7 @@ export function LoadChat({ loadId, truck, messages, working }: { loadId: string;
           placeholder="Tell your agent something…"
           aria-label="Message your agent"
         />
-        <button type="submit" disabled={isPending || !text.trim()} className="grid size-10 place-items-center rounded-lg bg-forest text-card-soft hover:bg-forest-deep disabled:opacity-50" aria-label="Send">
+        <button type="submit" disabled={isPending || (!text.trim() && !file)} className="grid size-10 place-items-center rounded-lg bg-forest text-card-soft hover:bg-forest-deep disabled:opacity-50" aria-label="Send">
           <SendHorizontal className="size-4" />
         </button>
       </form>

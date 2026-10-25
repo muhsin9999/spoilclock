@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { AgentCrate } from "@/components/brand/agent-crate";
 import { ApproveButton } from "./approve-button";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
@@ -24,7 +24,7 @@ export function DealCard(p: Props) {
   return (
     <div className="rounded-xl border border-line bg-card-soft p-5">
       <div className="flex items-start gap-4">
-        <Image src="/art/crate-sm.webp" alt="" width={56} height={57} className="mt-1 shrink-0" />
+        <AgentCrate mood="happy" className="mt-1 w-16 shrink-0" />
         <div className="min-w-0 flex-1">
           <span className="rounded-md bg-wheat px-2 py-0.5 text-xs font-medium text-forest-deep">Deal ready</span>
           <div className="mt-1.5 font-heading text-2xl tabular-nums">

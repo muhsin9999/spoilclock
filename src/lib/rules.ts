@@ -1,5 +1,5 @@
 // The rules code enforces around the agents. The models propose; these decide what actually stands.
-import type { Buyer } from "./buyers";
+import { limits, type Buyer } from "./buyers";
 
 const MIN = 60_000;
 
@@ -13,9 +13,9 @@ export function clampAsk(askCents: number, floorCents: number, lastAskCents?: nu
 }
 
 /** A buyer agent bids within its own brief: never above its max, never below its last bid. */
-export function clampBid(b: Buyer, bidCents: number, lastBidCents?: number) {
+export function clampBid(b: Buyer, originalCents: number, bidCents: number, lastBidCents?: number) {
   let v = Math.round(bidCents / 100) * 100;
-  v = Math.min(v, b.brief.maxCents);
+  v = Math.min(v, limits(b, originalCents).maxCents);
   if (lastBidCents !== undefined) v = Math.max(v, lastBidCents);
   return v;
 }

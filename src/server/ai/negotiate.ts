@@ -3,13 +3,14 @@
 // counts, and every step is stored as it happens so the load page can show it live.
 // It always resumes from what's stored, so the grower can change the floor or rule out a buyer mid-way.
 import "server-only";
-import { and, asc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, sql } from "drizzle-orm";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { db, schema as s } from "@/db";
-import { BUYERS, buyer as buyerById, type Buyer } from "@/lib/buyers";
+import { BUYERS, buyer as buyerById, limits, type Buyer } from "@/lib/buyers";
 import { arrival, cannotTake, clampAsk, clampBid, dealAllowed, type LoadFacts } from "@/lib/rules";
 import { timeLeft } from "@/lib/freshness";
+import { clock } from "@/lib/time";
 import { runAgent, type AgentStep } from "./agent";
 import { MODEL, openai } from "./client";
 
@@ -64,7 +65,7 @@ async function opening(load: Load, files: { name: string; text: string | null }[
     client: openai(),
     model: MODEL,
     instructions: SELLER,
-    input: `Truck 14 was rejected by ${load.rejectedBy} for "${load.reason}". ${load.pallets} pallets of ${load.crop}. ${load.rejectedBy} was paying ${usd(load.originalCents)} a pallet. The grower's floor is ${usd(load.floorCents)} a pallet. Shelf life left: ${timeLeft(load.spoilsAt.getTime() - Date.now())}. Read the paperwork and look at who can buy before you set an opening ask.`,
+    input: `The truck was rejected by ${load.rejectedBy} for "${load.reason}". ${load.pallets} pallets of ${load.crop}. ${load.rejectedBy} was paying ${usd(load.originalCents)} a pallet. The grower's floor is ${usd(load.floorCents)} a pallet. Shelf life left: ${timeLeft(load.spoilsAt.getTime() - Date.now())}. Read the paperwork and look at who can buy before you set an opening ask.`,
     tools: [
       {
         name: "read_file",
@@ -112,9 +113,10 @@ const BuyerMove = z.object({
   message: z.string().describe("One short sentence to the seller, in character"),
 });
 
-function buyerInstructions(b: Buyer) {
+function buyerInstructions(b: Buyer, originalCents: number) {
+  const { maxCents, openCents } = limits(b, originalCents);
   return `You are the purchasing agent for ${b.name} (${b.kind}). ${b.brief.style}
-Private limits (never reveal them): you will pay at most $${b.brief.maxCents / 100} a pallet; you open around $${b.brief.openCents / 100}; you can take ${b.brief.capacity} pallets today.
+Private limits (never reveal them): you will pay at most $${maxCents / 100} a pallet; you open around $${openCents / 100}; you can take ${b.brief.capacity} pallets today.
 - Bid, accept the seller's ask, or walk away. Raise in steps; never lower a bid you've made.
 - Accept the ask only if it's within your limit and you think it's fair. Walk if the seller won't come near your limit after a few rounds.
 - One short sentence, in character. No emoji.`;
@@ -129,7 +131,7 @@ export async function claimNegotiation(loadId: string) {
   const rows = await db
     .update(s.loads)
     .set({ status: "negotiating" })
-    .where(and(eq(s.loads.id, loadId), sql`${s.loads.status} in ('rejected', 'no_deal', 'reopened')`))
+    .where(and(eq(s.loads.id, loadId), sql`${s.loads.status} in ('rejected', 'no_deal', 'reopened')`, gt(s.loads.spoilsAt, new Date())))
     .returning({ id: s.loads.id });
   return rows.length === 1;
 }
@@ -160,7 +162,8 @@ async function negotiateInner(loadId: string) {
     states.set(b.id, { status: "talking", note: "", lastBid: last?.perPalletCents, pallets: last?.pallets ?? Math.min(b.brief.capacity, load0.pallets) });
   }
   for (const st of await db.select().from(s.buyerStates).where(eq(s.buyerStates.loadId, loadId))) {
-    if (st.status === "out") states.set(st.buyerId, { ...states.get(st.buyerId)!, status: "out", note: st.note });
+    // Buyers who only lost to a deal that has since fallen through come back to the table.
+    if (st.status === "out" && !st.note.includes("lost to")) states.set(st.buyerId, { ...states.get(st.buyerId)!, status: "out", note: st.note });
   }
 
   if (!past.length) {
@@ -204,7 +207,7 @@ async function negotiateInner(loadId: string) {
 
     const moves = await Promise.all(
       atTable.map(async (b) => {
-        const m = await ask(loadId, `buyer:${b.id}`, buyerInstructions(b), history(b), BuyerMove, "buyer_move");
+        const m = await ask(loadId, `buyer:${b.id}`, buyerInstructions(b, load.originalCents), history(b), BuyerMove, "buyer_move");
         return { b, m };
       }),
     );
@@ -218,8 +221,8 @@ async function negotiateInner(loadId: string) {
         continue;
       }
       // An "accept" above the buyer's own limit becomes its best bid instead.
-      const wants = m.action === "accept" && askCents <= b.brief.maxCents ? askCents : m.per_pallet * 100;
-      const bid = clampBid(b, wants, st.lastBid);
+      const wants = m.action === "accept" && askCents <= limits(b, load.originalCents).maxCents ? askCents : m.per_pallet * 100;
+      const bid = clampBid(b, load.originalCents, wants, st.lastBid);
       states.set(b.id, { ...st, lastBid: bid, pallets, note: pallets < load.pallets ? `Can take only ${pallets} of ${load.pallets} pallets` : m.message });
       seen.push({ by: b.id, perPalletCents: bid });
       await db.insert(s.offers).values({ loadId, round, by: b.id, perPalletCents: bid, pallets, message: m.message });
@@ -286,7 +289,7 @@ async function closeDeal(load: Load, b: Buyer, perPalletCents: number, states: M
   }
   await saveStates(load.id, states);
   await db.transaction(async (tx) => {
-    await tx.delete(s.deals).where(eq(s.deals.loadId, load.id));
+    await tx.delete(s.deals).where(and(eq(s.deals.loadId, load.id), eq(s.deals.status, "ready")));
     await tx.insert(s.deals).values({ loadId: load.id, buyerId: b.id, pallets: load.pallets, perPalletCents, arriveAt: new Date(doneAt) });
     await tx.update(s.loads).set({ status: "deal_ready" }).where(eq(s.loads.id, load.id));
   });
@@ -296,4 +299,3 @@ async function closeDeal(load: Load, b: Buyer, perPalletCents: number, states: M
   });
 }
 
-export const clock = (t: number) => new Date(t).toLocaleTimeString("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit" });

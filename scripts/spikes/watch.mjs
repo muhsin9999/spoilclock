@@ -10,7 +10,7 @@ await p.goto("http://localhost:3300/today", { waitUntil: "networkidle" });
 await p.click("text=Open"); await p.waitForURL(/loads/); await p.waitForLoadState("networkidle");
 await p.click("button:has-text('Find a buyer')");
 const t0 = Date.now();
-for (let i = 0; i < 30; i++) {
+for (let i = 0; i < 1; i++) {
   await p.waitForTimeout(5000);
   const rounds = await p.locator("text=/^\\d+ rounds?/").first().textContent({ timeout: 500 }).catch(() => "-");
   const deal = await p.isVisible("text=Approve and hold payment");

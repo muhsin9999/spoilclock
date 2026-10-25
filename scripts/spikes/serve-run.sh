@@ -6,4 +6,4 @@ NEXT_TELEMETRY_DISABLED=1 ~/bin/memguard 1500 npx next start -p 3300 > /tmp/sc-s
 pid=$!
 trap 'kill $pid 2>/dev/null; wait $pid 2>/dev/null' EXIT
 for i in $(seq 1 40); do curl -s -o /dev/null http://localhost:3300/ && break; sleep 0.5; done
-timeout 400 node "$@"
+timeout 900 node "$@"

@@ -7,6 +7,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db, schema as s } from "@/db";
 import { buyer as buyerById } from "@/lib/buyers";
+import { TRUCKS } from "@/lib/demo-day";
 import { arrival } from "@/lib/rules";
 import { paypal, PayPalError } from "./rest";
 
@@ -34,10 +35,11 @@ function explain(e: unknown) {
 
 /** The grower approved the deal: hold the money on the buyer agent's saved card. */
 export async function holdPayment(loadId: string): Promise<MoneyResult> {
-  const [deal] = await db.update(s.deals).set({ status: "holding" }).where(and(eq(s.deals.loadId, loadId), eq(s.deals.status, "ready"))).returning();
+  const [deal] = await db.update(s.deals).set({ status: "holding" }).where(and(eq(s.deals.loadId, loadId), eq(s.deals.status, "ready"))).returning(); // at most one ready deal per load
   if (!deal) return { ok: false, error: "This deal isn't waiting for approval any more." };
   const [load] = await db.select().from(s.loads).where(eq(s.loads.id, loadId));
   const b = buyerById(deal.buyerId)!;
+  const truck = TRUCKS.find((t) => t.id === load.truckId)?.name ?? "The truck";
   const [card] = await db.select().from(s.buyerCards).where(eq(s.buyerCards.buyerId, b.id));
   const back = () => db.update(s.deals).set({ status: "ready" }).where(eq(s.deals.id, deal.id));
   if (!card) {
@@ -57,7 +59,7 @@ export async function holdPayment(loadId: string): Promise<MoneyResult> {
             reference_id: load.id,
             custom_id: deal.id,
             invoice_id: `SPOILCLOCK-${deal.id}`,
-            description: `${deal.pallets} pallets of ${load.crop.toLowerCase()} (Truck 14), resold after a dock rejection`,
+            description: `${deal.pallets} pallets of ${load.crop.toLowerCase()} (${truck}), resold after a dock rejection`,
             soft_descriptor: "SPOILCLOCK",
             amount: { currency_code: "USD", value: value(total), breakdown: { item_total: { currency_code: "USD", value: value(total) } } },
             items: [{ name: `${load.crop}, ${load.grade}`, quantity: String(deal.pallets), unit_amount: { currency_code: "USD", value: value(deal.perPalletCents) }, category: "PHYSICAL_GOODS" }],
@@ -89,7 +91,7 @@ export async function holdPayment(loadId: string): Promise<MoneyResult> {
     await tx.insert(s.messages).values({
       loadId,
       kind: "agent",
-      body: { text: `Done. PayPal is holding ${usd(total)} on ${b.name}'s card, and Truck 14 is on its way. Nothing is charged until their dock checks the load. Send them the dock check link.` },
+      body: { text: `Done. PayPal is holding ${usd(total)} on ${b.name}'s card, and ${truck} is on its way. Nothing is charged until their dock checks the load. Send them the dock check link.` },
     });
   });
   return { ok: true };

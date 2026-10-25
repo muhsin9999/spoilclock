@@ -10,7 +10,11 @@ const ts = (name: string) => timestamp(name, { withTimezone: true });
 // One visitor's copy of Salinas Ridge Farms' day, laid out around the moment it started.
 export const runs = pgTable("runs", {
   id: uuid("id").primaryKey(), // the visitor's cookie
-  anchor: ts("anchor").notNull(), // "now" when the day was laid out
+  anchor: ts("anchor").notNull(), // "now" when the current day was laid out
+  // The farm's standing rules, applied to every new rejected load.
+  floorShare: integer("floor_share").notNull().default(75), // floor as % of what the original buyer was paying
+  blocked: text("blocked").array().notNull().default(sql`'{}'::text[]`), // buyer ids never to sell to
+  day: integer("day").notNull().default(1), // how many days this visitor has run
   createdAt: at(),
 });
 
@@ -25,6 +29,8 @@ export const trips = pgTable(
     startAt: ts("start_at").notNull(),
     endAt: ts("end_at").notNull(),
     loadId: uuid("load_id"),
+    crop: text("crop"),
+    pallets: integer("pallets"),
     createdAt: at(),
   },
   (t) => [index("trips_run").on(t.runId)],
@@ -88,7 +94,7 @@ export const buyerStates = pgTable(
 // The agreed sale and its money trail on PayPal.
 export const deals = pgTable("deals", {
   id: id(),
-  loadId: uuid("load_id").notNull().unique().references(() => loads.id, { onDelete: "cascade" }),
+  loadId: uuid("load_id").notNull().references(() => loads.id, { onDelete: "cascade" }), // one load can have a voided deal, then a new one
   buyerId: text("buyer_id").notNull(),
   pallets: integer("pallets").notNull(),
   perPalletCents: integer("per_pallet_cents").notNull(),
@@ -126,6 +132,7 @@ export const files = pgTable("files", {
   type: text("type").notNull(),
   bytes: integer("bytes").notNull(),
   text: text("text"), // extracted text the agent can read
+  data: text("data"), // small images only, base64, so the agent can look at them
   sample: boolean("sample").notNull().default(false), // part of the demo day, not uploaded
   createdAt: at(),
 });

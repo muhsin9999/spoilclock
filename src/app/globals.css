@@ -196,3 +196,6 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.6 1.45'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+.sc-board .b-sch-event.sc-trip { cursor: pointer; }
+.sc-board .b-sch-event.sc-trip:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--forest) 35%, transparent); }
+@media (max-width: 639px) { .sc-board .sc-truck-name { font-size: 1.1rem; } .sc-board .sc-truck-load { font-size: 0.6rem; letter-spacing: 0.06em; } }

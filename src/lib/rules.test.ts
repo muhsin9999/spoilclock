@@ -15,8 +15,8 @@ describe("rules", () => {
     expect(clampAsk(171_40, 150_00)).toBe(171_00);
   });
   it("keeps a buyer within its own brief", () => {
-    expect(clampBid(valley, 999_00)).toBe(180_00);
-    expect(clampBid(valley, 130_00, 150_00)).toBe(150_00);
+    expect(clampBid(valley, 200_00, 999_00)).toBe(180_00);
+    expect(clampBid(valley, 200_00, 130_00, 150_00)).toBe(150_00);
   });
   it("rules out buyers that can't take the load", () => {
     expect(cannotTake(coastal, load, now)).toBe("Can take only 8 of 16 pallets");
