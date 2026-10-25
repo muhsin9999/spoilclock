@@ -42,12 +42,14 @@ async function Today() {
           <Link key={l.id} href={`/loads/${l.id}`} className="flex items-center gap-4 rounded-xl border border-line bg-card-soft px-5 py-3 shadow-soft transition-colors hover:border-forest/40">
             <FreshnessRing size="sm" spoilsAt={l.spoilsAt.getTime()} totalMs={l.spoilsAt.getTime() - l.rejectedAt.getTime()} now={now} />
             <span className="min-w-0 flex-1">
-              <span className="block font-heading text-xl">
-                {TRUCKS.find((t) => t.id === l.truckId)?.name} · {l.crop.toLowerCase()} · {timeLeft(l.spoilsAt.getTime() - now)} left
+              <span className="block font-heading text-lg sm:text-xl">
+                {TRUCKS.find((t) => t.id === l.truckId)?.name} · {l.crop.toLowerCase()}
               </span>
-              <span className="block text-sm text-ink-muted">{NEEDS[l.status]}</span>
+              <span className="block text-sm text-ink-muted">
+                <span className="font-medium text-ink tabular-nums">{timeLeft(l.spoilsAt.getTime() - now)} left</span> · {NEEDS[l.status]}
+              </span>
             </span>
-            <span className="text-forest underline underline-offset-4">Open</span>
+            <span className="hidden text-forest underline underline-offset-4 sm:inline">Open</span>
             <ChevronRight className="size-5 text-ink-muted" />
           </Link>
         ))}

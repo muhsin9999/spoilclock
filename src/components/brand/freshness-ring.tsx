@@ -45,7 +45,7 @@ export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", 
   const label = timeLeft(left);
 
   return (
-    <div className={cn("relative inline-grid shrink-0 place-items-center", size === "sm" ? "size-12" : "size-56", className)} role="img" aria-label={left > 0 ? (stoppedAt ? `Sold with ${label} to spare` : `${label} left before it spoils`) : "Spoiled"}>
+    <div className={cn("@container relative inline-grid shrink-0 place-items-center", size === "sm" ? "size-12" : "size-56", className)} role="img" aria-label={left > 0 ? (stoppedAt ? `Sold with ${label} to spare` : `${label} left before it spoils`) : "Spoiled"}>
       <svg viewBox="0 0 48 48" className="absolute inset-0 size-full" aria-hidden>
         <circle cx="24" cy="24" r={r} fill="none" stroke="var(--wheat)" strokeWidth={stroke} />
         {Array.from({ length: n }, (_, i) => {
@@ -57,8 +57,9 @@ export function FreshnessRing({ spoilsAt, totalMs, now: serverNow, size = "lg", 
       </svg>
       {size === "lg" && (
         <div className="relative text-center font-heading leading-none text-ink">
-          <div className="text-[2.6rem] font-medium tracking-tight tabular-nums">{label}</div>
-          {left > 0 && <div className="mt-1.5 text-2xl">{stoppedAt ? "to spare" : "left"}</div>}
+          {/* Sized from the ring's own width, so the time always fits inside it whatever size the page gives it. */}
+          <div className="text-[15cqw] font-medium tracking-tight whitespace-nowrap tabular-nums">{label}</div>
+          {left > 0 && <div className="mt-1.5 text-[9cqw]">{stoppedAt ? "to spare" : "left"}</div>}
         </div>
       )}
     </div>
