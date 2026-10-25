@@ -10,3 +10,4 @@ scripts/spikes/.failure-test.json
 public/bryntum/
 scripts/spikes/bryntum-next/
 assets-src/
+!.env.example
