@@ -1,6 +1,7 @@
 // Real flow on :3300: negotiate → approve (PayPal hold) → phone dock check → short by 2 (partial capture).
 import { chromium } from "/home/momoh_mustapha/projects/lifeline/node_modules/playwright-core/index.mjs";
 const out = process.argv[2];
+const BASE = process.env.BASE ?? "http://localhost:3300";
 const b = await chromium.launch({ executablePath: process.env.HOME + "/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome" });
 const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
 const p = await ctx.newPage();
@@ -9,7 +10,7 @@ p.on("pageerror", (e) => errors.push(e.message));
 p.on("dialog", (d) => d.accept());
 const t0 = Date.now();
 const log = (m) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s ${m}`);
-await p.goto("http://localhost:3300/today", { waitUntil: "networkidle" });
+await p.goto(`${BASE}/today`, { waitUntil: "networkidle" });
 await p.click("text=Open"); await p.waitForURL(/loads/); await p.waitForLoadState("networkidle");
 await p.click("button:has-text('Find a buyer')");
 await p.waitForSelector("text=Approve and hold payment", { timeout: 200000 });
@@ -20,13 +21,13 @@ await p.waitForTimeout(800);
 log("held");
 await p.screenshot({ path: `${out}/money-1-held.png`, fullPage: true });
 const dockHref = await p.getAttribute("text=Open the dock check", "href");
-await p.goto("http://localhost:3300/today", { waitUntil: "networkidle" }); await p.waitForSelector(".b-sch-event"); await p.waitForTimeout(800);
+await p.goto(`${BASE}/today`, { waitUntil: "networkidle" }); await p.waitForSelector(".b-sch-event"); await p.waitForTimeout(800);
 await p.screenshot({ path: `${out}/money-2-today.png`, fullPage: true });
 const phone = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const d = await phone.newPage();
 d.on("dialog", (x) => x.accept());
 d.on("pageerror", (e) => errors.push("dock: " + e.message));
-await d.goto("http://localhost:3300" + dockHref, { waitUntil: "networkidle" });
+await d.goto(`${BASE}` + dockHref, { waitUntil: "networkidle" });
 await d.screenshot({ path: `${out}/money-3-dock.png`, fullPage: true });
 await d.click("button[aria-label='One more']"); // 15 of 16
 await d.click("button:has-text('Some pallets short')");
