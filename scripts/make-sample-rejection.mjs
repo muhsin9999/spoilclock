@@ -1,4 +1,4 @@
-// A one-page test rejection notice (lettuce at Sunbelt Markets) for the upload test.
+// A one-page TEST rejection notice (lettuce at Sunbelt Markets) for demos: node scripts/make-sample-rejection.mjs docs/samples/sunbelt-rejection.pdf
 import { writeFileSync } from "node:fs";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 const doc = await PDFDocument.create();
