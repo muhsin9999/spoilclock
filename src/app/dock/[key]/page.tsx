@@ -74,7 +74,7 @@ async function Dock({ params }: { params: PageProps<"/dock/[key]">["params"] }) 
         {done ? (
           <p className="rounded-xl border border-line bg-card-soft p-5 text-center font-heading text-xl">{done}</p>
         ) : (
-          <DockActions dockKey={key} pallets={deal.pallets} />
+          <DockActions dockKey={key} pallets={deal.pallets} perPalletCents={deal.perPalletCents} />
         )}
         <p className="flex items-start gap-3 border-t border-line pt-4 text-sm text-ink-muted">
           <Lock className="mt-0.5 size-4 shrink-0 text-kraft" />

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { sendMessage } from "@/app/(app)/loads/[id]/actions";
 import { AgentCrate } from "@/components/brand/agent-crate";
 import { cn } from "@/lib/utils";
+import { useDictation, VoiceButton } from "@/components/app/voice-input";
 
 export type ChatMessage = { id: string; kind: string; body: { text?: string; files?: string[]; steps?: string[]; seconds?: number } };
 
@@ -18,6 +19,9 @@ export function LoadChat({ loadId, truck, messages, working, closed }: { loadId:
   const [pending, setPending] = useState<{ text: string; file?: string } | null>(null);
   const [isPending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
+  const voice = useDictation(text, setText);
+  const asked = new Set(messages.filter((m) => m.kind === "user").map((m) => m.body.text?.trim()));
+  const left = SUGGESTIONS.filter((s) => !asked.has(s));
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });
@@ -26,6 +30,7 @@ export function LoadChat({ loadId, truck, messages, working, closed }: { loadId:
   const send = (value: string) => {
     const v = value.trim();
     if ((!v && !file) || isPending) return;
+    voice.stop();
     const fd = new FormData();
     fd.set("text", v);
     if (file) fd.set("file", file);
@@ -68,9 +73,9 @@ export function LoadChat({ loadId, truck, messages, working, closed }: { loadId:
         )}
         <div ref={end} />
       </ol>
-      {messages.filter((m) => m.kind === "user").length === 0 && !pending && (
+      {left.length > 0 && !pending && !closed && (
         <div className="flex flex-wrap gap-2 px-5 pb-3">
-          {SUGGESTIONS.map((s) => (
+          {left.map((s) => (
             <button key={s} type="button" onClick={() => send(s)} className="rounded-full border border-line px-3 py-1 text-sm text-ink-muted hover:border-forest hover:text-ink">
               {s}
             </button>
@@ -97,12 +102,13 @@ export function LoadChat({ loadId, truck, messages, working, closed }: { loadId:
           <Paperclip className="size-5" />
           <input type="file" className="sr-only" accept="application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
+        {voice.supported && !closed ? <VoiceButton listening={voice.listening} onToggle={voice.toggle} /> : null}
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={1000}
           className="h-10 min-w-0 flex-1 rounded-lg border border-line bg-parchment/60 px-3 text-sm outline-none focus:border-forest"
-          placeholder="Tell your agent something…"
+          placeholder={voice.listening ? "Listening…" : "Tell your agent something…"}
           aria-label="Message your agent"
         />
         <button type="submit" disabled={isPending || (!text.trim() && !file)} className="grid size-10 place-items-center rounded-lg bg-forest text-card-soft hover:bg-forest-deep disabled:opacity-50" aria-label="Send">
