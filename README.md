@@ -119,7 +119,7 @@ npm run dev                       # http://localhost:3000
 
 Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui on Base UI, Motion · OpenAI Responses API · PayPal Orders v2, Payments v2, Vault v3 and Webhooks · Bryntum Scheduler · Neon Postgres with Drizzle · Vercel · unpdf and pdf-lib · Vitest, and Playwright for screenshots and click-through tests.
 
-Design notes are in [docs/DESIGN.md](docs/DESIGN.md); the demo script is in [docs/DEMO.md](docs/DEMO.md).
+Design notes are in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Licence
 

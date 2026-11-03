@@ -11,3 +11,6 @@ public/bryntum/
 scripts/spikes/bryntum-next/
 assets-src/
 !.env.example
+
+# Internal working notes (video script, Devpost draft); kept local, not public
+/notes/
