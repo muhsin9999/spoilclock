@@ -185,8 +185,12 @@
 .sc-board .sc-rejected .sc-dot { background: var(--spoiling); }
 .sc-board .b-sch-event.sc-redelivery { background: color-mix(in srgb, var(--forest-tint) 70%, transparent); border: 1.5px dashed var(--forest); }
 .sc-board .b-sch-current-time { border-left-width: 2px; }
-.sc-board .b-sch-current-time label, .sc-board .b-sch-current-time .b-sch-range-label {
-  background: var(--forest); color: var(--card-soft); border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.75rem;
+/* "Now" lives in the board, not the time header, so every hour label stays readable; the line runs behind the trips. */
+.sc-board .b-time-ranges-header-canvas .b-sch-current-time { display: none; }
+.sc-board .b-time-ranges-body-canvas { z-index: 0; }
+.sc-board .b-time-ranges-body-canvas .b-sch-current-time::after {
+  content: "Now"; display: block; position: absolute; top: 0.3rem; left: -1.15rem;
+  background: var(--forest); color: var(--card-soft); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.7rem; font-weight: 500; line-height: 1.3;
 }
 
 /* Ink stamp: a double rule and a little grit so it reads as pressed ink, not a badge. */

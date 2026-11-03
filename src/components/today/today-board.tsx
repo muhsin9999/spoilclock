@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
-import { FileUp, Plus, RotateCcw, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { ChevronRight, FileUp, Plus, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { addDelivery, readReport, reportRejection, startNewDay } from "@/app/(app)/today/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Truck } from "@/lib/demo-day";
 import { clock } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { Board, type Trip } from "./board";
 
 type BoardTrip = Trip & { loadId: string | null; crop: string | null; pallets: number | null };
@@ -49,9 +50,11 @@ export function TodayBoard({ trucks, trips, window, timeZone, defaults }: { truc
           </Button>
         </div>
       </div>
-      <section className="overflow-hidden rounded-xl border border-line bg-card-soft p-2 shadow-soft" aria-label="Today's trucks">
+      <section className="hidden overflow-hidden rounded-xl border border-line bg-card-soft p-2 shadow-soft sm:block" aria-label="Today's trucks">
+        {/* Phones see the list below instead. Mounted at once: a scheduler created after hydration came up empty. */}
         <Board trucks={trucks} trips={trips} window={window} timeZone={timeZone} onTripClick={setOpenId} />
       </section>
+      <TripList trucks={trucks} trips={trips} onOpen={setOpenId} />
       <Dialog open={!!trip} onOpenChange={(o) => !o && setOpenId(null)}>
         <DialogContent className="max-w-lg">{trip && <TripDetails trip={trip} truck={trucks.find((t) => t.id === trip.truckId)!} defaults={defaults} onDone={() => setOpenId(null)} />}</DialogContent>
       </Dialog>
@@ -236,5 +239,60 @@ function NewDelivery({ trucks, onDone }: { trucks: Truck[]; onDone: () => void }
         {pending ? "Adding…" : "Add to the board"}
       </Button>
     </form>
+  );
+}
+
+const TONE: Record<string, string> = {
+  pickup: "border-line bg-card-soft text-ink-muted",
+  delivery: "border-forest/25 bg-forest-tint text-forest",
+  rejected: "border-spoiling/40 bg-spoiling-tint text-spoiling",
+  redelivery: "border-dashed border-forest bg-forest-tint/60 text-forest",
+};
+
+/** Phones: today's trips in time order, with a "Now" divider. Each opens the same dialog as the board. */
+function TripList({ trucks, trips, onOpen }: { trucks: Truck[]; trips: BoardTrip[]; onOpen: (id: string) => void }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    // The time is read in the browser after mount (never during render), so server and browser agree.
+    const first = setTimeout(() => setNow(Date.now()), 0);
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, []);
+  const sorted = [...trips].sort((a, b) => a.start - b.start);
+  const nowAt = now === null ? -1 : sorted.findIndex((t) => t.start > now);
+  return (
+    <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card-soft shadow-soft sm:hidden" aria-label="Today's trips">
+      {sorted.map((t, i) => {
+        const truck = trucks.find((x) => x.id === t.truckId)!;
+        return (
+          <li key={t.id}>
+            {i === nowAt ? (
+              <p className="flex items-center gap-2 bg-forest-tint/50 px-4 py-1.5 text-xs font-medium text-forest">
+                <span className="size-1.5 rounded-full bg-forest" /> Now · {clock(now!)}
+              </p>
+            ) : null}
+            <button type="button" onClick={() => onOpen(t.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-forest-tint/40">
+              <span className="w-16 shrink-0 text-sm tabular-nums text-ink-muted">{clock(t.start)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-heading text-lg leading-tight">{truck.name}</span>
+                <span className="block truncate text-xs text-ink-muted">
+                  {truck.crop} · {t.place}
+                </span>
+              </span>
+              <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-xs", TONE[t.kind])}>{KIND[t.kind]}</span>
+              <ChevronRight className="size-4 shrink-0 text-ink-muted" />
+            </button>
+          </li>
+        );
+      })}
+      {now !== null && nowAt === -1 ? (
+        <li className="flex items-center gap-2 bg-forest-tint/50 px-4 py-1.5 text-xs font-medium text-forest">
+          <span className="size-1.5 rounded-full bg-forest" /> Now · {clock(now)}
+        </li>
+      ) : null}
+    </ol>
   );
 }
