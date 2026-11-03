@@ -14,6 +14,8 @@ type Result = { ok: true } | { ok: false; error: string };
 /** "Ask your agent": one message, maybe with a file. */
 export async function askYourAgent(form: FormData): Promise<Result> {
   const text = String(form.get("text") ?? "").trim().slice(0, 1000);
+  const t = String(form.get("thread") ?? "");
+  const thread = z.uuid().safeParse(t).success ? t : null;
   const file = form.get("file");
   const hasFile = file instanceof File && file.size > 0;
   if (!text && !hasFile) return { ok: false, error: "Write a message or attach a file." };
@@ -22,10 +24,10 @@ export async function askYourAgent(form: FormData): Promise<Result> {
   if (up && "error" in up) return { ok: false, error: up.error };
   const run = await currentRun();
   try {
-    await askAgent(run.id, text || `I've attached ${up!.name}.`, up);
+    await askAgent(run.id, text || `I've attached ${up!.name}.`, up, thread);
   } catch (e) {
     console.error("askAgent failed", e);
-    await db.insert(s.farmMessages).values({ runId: run.id, kind: "agent", body: { text: "I couldn't finish that just now. Nothing was changed. Try again." } });
+    await db.insert(s.farmMessages).values({ runId: run.id, thread, kind: "agent", body: { text: "I couldn't finish that just now. Nothing was changed. Try again." } });
   }
   refresh();
   return { ok: true };

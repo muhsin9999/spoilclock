@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
-import { ArrowUpRight, Brain, ChevronDown, FileText, Paperclip, SendHorizontal, X } from "lucide-react";
+import { useMemo, useEffect, useRef, useState, useTransition } from "react";
+import { ArrowLeft, ArrowUpRight, Brain, ChevronDown, FileText, History, Paperclip, SendHorizontal, SquarePen, X } from "lucide-react";
 import { toast } from "sonner";
 import { askYourAgent, forgetNote } from "@/app/(app)/agent-actions";
 import { AgentCrate } from "@/components/brand/agent-crate";
@@ -10,8 +10,27 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { cn } from "@/lib/utils";
 import { useDictation, VoiceButton } from "./voice-input";
 
-export type FarmMessage = { id: string; kind: string; body: { text?: string; files?: string[]; steps?: string[]; seconds?: number; links?: { label: string; href: string }[]; actions?: string[] } };
+export type FarmMessage = { id: string; thread?: string | null; at?: string; kind: string; body: { text?: string; files?: string[]; steps?: string[]; seconds?: number; links?: { label: string; href: string }[]; actions?: string[] } };
 export type Note = { id: string; text: string; about: string | null };
+
+const EARLIER = "earlier";
+const keyOf = (m: FarmMessage) => m.thread ?? EARLIER;
+const when = (iso: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+type Thread = { key: string; title: string; at: string; count: number };
+
+/** Conversations, newest first, titled by their first question. */
+function threadsOf(messages: FarmMessage[]): Thread[] {
+  const by = new Map<string, Thread>();
+  for (const m of messages) {
+    const k = keyOf(m);
+    const t = by.get(k) ?? { key: k, title: "", at: m.at ?? "", count: 0 };
+    if (!t.title && m.kind === "user") t.title = (m.body.text ?? "").slice(0, 60) || "Shared a file";
+    t.at = m.at ?? t.at;
+    t.count++;
+    by.set(k, t);
+  }
+  return [...by.values()].map((t) => ({ ...t, title: t.key === EARLIER ? "Earlier conversation" : t.title || "New conversation" })).sort((a, b) => b.at.localeCompare(a.at));
+}
 
 const SUGGESTIONS = ["What did we do last?", "Which load needs me most?", "How much has PayPal captured?", "Remember: Bargain Fresh pays late"];
 
@@ -24,17 +43,28 @@ export function AgentPanel({ messages, notes, compact = false }: { messages: Far
   const [busy, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
   const voice = useDictation(text, setText);
+  const threads = useMemo(() => threadsOf(messages), [messages]);
+  // The open conversation: the latest one, until the grower starts a new chat or picks one from History.
+  const [thread, setThread] = useState<string>(() => threads[0]?.key ?? crypto.randomUUID());
+  const [showHistory, setShowHistory] = useState(false);
+  const shown = messages.filter((m) => keyOf(m) === thread);
+  const newChat = () => {
+    setThread(crypto.randomUUID());
+    setShowHistory(false);
+  };
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });
-  }, [messages.length, pending, open]);
+  }, [shown.length, pending, open, thread]);
 
   const send = (value: string) => {
     const v = value.trim();
     if ((!v && !file) || busy) return;
     voice.stop();
+    setShowHistory(false);
     const fd = new FormData();
     fd.set("text", v);
+    fd.set("thread", thread === EARLIER ? "" : thread);
     if (file) fd.set("file", file);
     setPending({ text: v || `I've attached ${file!.name}.`, file: file?.name });
     setText("");
@@ -71,17 +101,48 @@ export function AgentPanel({ messages, notes, compact = false }: { messages: Far
       <SheetContent side="right" className="flex w-full flex-col gap-0 bg-card-soft p-0 sm:max-w-md">
         <header className="flex items-center gap-3 border-b border-line px-5 py-4 pr-12">
           <AgentCrate mood={busy ? "thinking" : messages.length ? "idle" : "happy"} followCursor={!busy} className="w-16" />
-          <div>
+          <div className="min-w-0 flex-1">
             <SheetTitle className="font-heading text-2xl font-normal leading-none">Your agent</SheetTitle>
             <p className="mt-1 text-xs text-ink-muted">Answers from your farm&apos;s records · remembers what you tell it</p>
           </div>
+          <button type="button" onClick={() => setShowHistory((v) => !v)} aria-pressed={showHistory} aria-label="Past conversations" title="Past conversations" className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-card hover:text-ink", showHistory && "bg-card text-ink")}>
+            <History className="size-[1.1rem]" />
+          </button>
+          <button type="button" onClick={newChat} aria-label="New chat" title="New chat" className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-card hover:text-ink">
+            <SquarePen className="size-[1.05rem]" />
+          </button>
         </header>
 
+        {showHistory ? (
+          <section className="flex-1 overflow-y-auto" aria-label="Past conversations">
+            <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+              <button type="button" onClick={() => setShowHistory(false)} className="grid size-7 place-items-center rounded-md text-ink-muted hover:bg-card hover:text-ink" aria-label="Back to the chat">
+                <ArrowLeft className="size-4" />
+              </button>
+              <p className="text-sm font-medium">Past conversations</p>
+            </div>
+            {threads.length ? (
+              <ul className="divide-y divide-line">
+                {threads.map((t) => (
+                  <li key={t.key}>
+                    <button type="button" onClick={() => { setThread(t.key); setShowHistory(false); }} className={cn("flex w-full flex-col gap-0.5 px-5 py-3 text-left hover:bg-card", t.key === thread && "bg-card")}>
+                      <span className="truncate text-sm font-medium">{t.title}</span>
+                      <span className="text-xs text-ink-muted">{t.at ? when(t.at) : ""} · {t.count} {t.count === 1 ? "message" : "messages"}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 py-6 text-sm text-ink-muted">No conversations yet. Ask anything to start one.</p>
+            )}
+          </section>
+        ) : (
+          <>
         <Memory notes={notes} />
 
         <ol className="flex-1 space-y-4 overflow-y-auto px-5 py-5" aria-live="polite">
-          {messages.length === 0 && !pending && <li className="text-sm text-ink-muted">Ask about any load, buyer or payment, attach a document, or tell me something to remember.</li>}
-          {messages.map((m) => (
+          {shown.length === 0 && !pending && <li className="text-sm text-ink-muted">Ask about any load, buyer or payment, attach a document, or tell me something to remember.</li>}
+          {shown.map((m) => (
             <li key={m.id}>
               <Bubble m={m} onNavigate={() => setOpen(false)} />
             </li>
@@ -97,7 +158,7 @@ export function AgentPanel({ messages, notes, compact = false }: { messages: Far
           <div ref={end} />
         </ol>
 
-        {messages.length === 0 && !pending && (
+        {shown.length === 0 && !pending && (
           <div className="flex flex-wrap gap-2 px-5 pb-3">
             {SUGGESTIONS.map((sug) => (
               <button key={sug} type="button" onClick={() => send(sug)} className="rounded-full border border-line px-3 py-1 text-sm text-ink-muted hover:border-forest hover:text-ink">
@@ -105,6 +166,8 @@ export function AgentPanel({ messages, notes, compact = false }: { messages: Far
               </button>
             ))}
           </div>
+        )}
+          </>
         )}
         {file && (
           <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-1.5 text-sm">

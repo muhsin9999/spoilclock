@@ -14,11 +14,11 @@ export async function chromeData() {
     db.select().from(s.buyerCards),
     db.select({ n: count() }).from(s.paypalEvents).where(eq(s.paypalEvents.verified, true)),
     db.select({ at: s.paypalEvents.receivedAt }).from(s.paypalEvents).where(eq(s.paypalEvents.verified, true)).orderBy(desc(s.paypalEvents.receivedAt)).limit(1),
-    db.select().from(s.farmMessages).where(eq(s.farmMessages.runId, run)).orderBy(desc(s.farmMessages.createdAt)).limit(40),
+    db.select().from(s.farmMessages).where(eq(s.farmMessages.runId, run)).orderBy(desc(s.farmMessages.createdAt)).limit(300),
     db.select().from(s.notes).where(eq(s.notes.runId, run)).orderBy(asc(s.notes.createdAt)),
   ]);
   return {
-    messages: recent.reverse().map((m) => ({ id: m.id, kind: m.kind, body: m.body as Record<string, never> })),
+    messages: recent.reverse().map((m) => ({ id: m.id, thread: m.thread, at: m.createdAt.toISOString(), kind: m.kind, body: m.body as Record<string, never> })),
     notes: notes.map((x) => ({ id: x.id, text: x.text, about: x.buyerId ? (buyerById(x.buyerId)?.name ?? null) : null })),
     needs: open[0] ?? null,
     sandbox: {

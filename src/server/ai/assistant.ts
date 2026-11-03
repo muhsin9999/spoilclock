@@ -3,7 +3,7 @@
 // grower tells it, and can take safe actions. Anything that moves money still needs the grower's Approve button.
 import "server-only";
 import { after } from "next/server";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema as s } from "@/db";
 import { BUYERS, buyer as buyerById } from "@/lib/buyers";
@@ -231,10 +231,12 @@ function tools(ctx: Ctx): AgentTool[] {
   ];
 }
 
-/** One message from the grower to their agent. Stores both sides of the conversation. */
-export async function askAgent(runId: string, text: string, upload: Upload | null) {
-  await db.insert(s.farmMessages).values({ runId, kind: "user", body: { text, files: upload ? [upload.name] : [] } });
-  const recent = await db.select().from(s.farmMessages).where(eq(s.farmMessages.runId, runId)).orderBy(desc(s.farmMessages.createdAt)).limit(10);
+/** One message from the grower to their agent, in one conversation. Stores both sides; the agent reads only this
+ *  conversation's earlier turns (what it was told to remember is shared across all of them). */
+export async function askAgent(runId: string, text: string, upload: Upload | null, thread: string | null = null) {
+  await db.insert(s.farmMessages).values({ runId, thread, kind: "user", body: { text, files: upload ? [upload.name] : [] } });
+  const inThread = thread ? eq(s.farmMessages.thread, thread) : isNull(s.farmMessages.thread);
+  const recent = await db.select().from(s.farmMessages).where(and(eq(s.farmMessages.runId, runId), inThread)).orderBy(desc(s.farmMessages.createdAt)).limit(10);
   const history = recent
     .reverse()
     .slice(0, -1)
@@ -265,5 +267,5 @@ export async function askAgent(runId: string, text: string, upload: Upload | nul
   // Only links to this farm's real loads survive.
   const own = new Set((await db.select({ id: s.loads.id }).from(s.loads).where(eq(s.loads.runId, runId))).map((l) => l.id));
   const links = run.output.links.filter((l) => own.has(l.load_id)).slice(0, 3).map((l) => ({ label: l.label.slice(0, 40), href: `/loads/${l.load_id}` }));
-  await db.insert(s.farmMessages).values({ runId, kind: "agent", body: { text: run.output.answer, steps, seconds: Math.round((Date.now() - started) / 1000), links, actions: ctx.actions } });
+  await db.insert(s.farmMessages).values({ runId, thread, kind: "agent", body: { text: run.output.answer, steps, seconds: Math.round((Date.now() - started) / 1000), links, actions: ctx.actions } });
 }

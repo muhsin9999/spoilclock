@@ -176,11 +176,13 @@ export const farmMessages = pgTable(
   {
     id: id(),
     runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
+    // One conversation. Null for messages from before conversations existed (shown as one earlier conversation).
+    thread: uuid("thread"),
     kind: text("kind").notNull(), // user | agent
     body: jsonb("body").notNull(), // { text, files?, steps?, seconds?, links? }
     createdAt: at(),
   },
-  (t) => [index("farm_messages_run").on(t.runId)],
+  (t) => [index("farm_messages_run").on(t.runId), index("farm_messages_thread").on(t.runId, t.thread, t.createdAt)],
 );
 
 // What your agent remembers: facts you told it, used in its later work (negotiations, the load chat).
