@@ -70,7 +70,7 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
               1: working ? "Talking to buyer agents" : deal && deal.status !== "voided" ? buyerById(deal.buyerId)?.name : `${BUYERS.length} buyer agents`,
               2: deal && settledOrHeld && deal.status !== "voided" ? `$${((deal.perPalletCents * deal.pallets) / 100).toLocaleString("en-US")} on PayPal` : undefined,
               3: deal?.status === "held" ? `Unloaded by ${clock(deal.arriveAt.getTime())}` : undefined,
-              4: deal?.status === "captured" || deal?.status === "partial" ? `$${((deal.capturedCents ?? 0) / 100).toLocaleString("en-US")} captured` : undefined,
+              4: deal?.status === "captured" || deal?.status === "partial" ? `$${((deal.capturedCents ?? 0) / 100).toLocaleString("en-US")} paid` : undefined,
             }}
           />
         </div>
@@ -119,7 +119,7 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
             )}
             {!spoiled && (load.status === "no_deal" || load.status === "reopened") && offers.length > 0 && (
               <div className="flex items-center justify-between gap-4 rounded-xl border border-line p-5">
-                <p className="text-ink-muted">{load.status === "reopened" ? "You changed the rules, so the deal was withdrawn." : "No buyer met your floor for the whole load."}</p>
+                <p className="text-ink-muted">{load.status === "reopened" ? (deal?.status === "voided" ? "The new dock rejected the load, and PayPal released the hold. Your agent can try the other buyers." : "You changed the rules, so the deal was withdrawn.") : "No buyer met your floor for the whole load."}</p>
                 <FindBuyerButton loadId={load.id} again />
               </div>
             )}
