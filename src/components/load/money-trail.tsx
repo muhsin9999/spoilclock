@@ -63,7 +63,7 @@ export async function MoneyTrail({ deal, events, card }: { deal: Deal; events: E
           <Step title="Rejected at the dock · hold released" detail={`PayPal released the hold ${deal.settledAt ? `at ${clock(deal.settledAt.getTime())}` : ""} · no money moved`} proof={confirmed("PAYMENT.AUTHORIZATION.VOIDED")} done />
         ) : (
           <Step
-            title={deal.status === "partial" ? `Captured ${usd(deal.capturedCents ?? 0)} for the pallets that arrived` : `Captured ${usd(deal.capturedCents ?? total)}`}
+            title={deal.status === "partial" ? `Paid ${usd(deal.capturedCents ?? 0)} for the pallets that arrived` : `Paid ${usd(deal.capturedCents ?? total)}`}
             detail={`${deal.settledAt ? `${clock(deal.settledAt.getTime())} · ` : ""}capture ${deal.captureId}${deal.status === "partial" ? ` · ${usd(total - (deal.capturedCents ?? 0))} released` : ""}`}
             proof={confirmed("PAYMENT.CAPTURE.COMPLETED")}
             done
