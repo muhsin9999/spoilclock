@@ -125,7 +125,7 @@ function tools(ctx: Ctx): AgentTool[] {
         const events: { at: Date; what: string }[] = [
           ...loads.map((l) => ({ at: l.rejectedAt, what: `${name(l.id)} rejected by ${l.rejectedBy} (${l.reason.toLowerCase()})` })),
           ...deals.filter((d) => d.approvedAt).map((d) => ({ at: d.approvedAt!, what: `${name(d.loadId)}: you approved ${buyerById(d.buyerId)?.name} at ${usd(d.perPalletCents)} a pallet; PayPal held ${usd(d.perPalletCents * d.pallets)}` })),
-          ...deals.filter((d) => d.settledAt).map((d) => ({ at: d.settledAt!, what: `${name(d.loadId)}: ${d.status === "voided" ? "rejected at the new dock, PayPal released the hold" : `PayPal captured ${usd(d.capturedCents ?? 0)}`}` })),
+          ...deals.filter((d) => d.settledAt).map((d) => ({ at: d.settledAt!, what: `${name(d.loadId)}: ${d.status === "voided" ? "rejected at the new dock, PayPal released the hold" : `PayPal paid ${usd(d.capturedCents ?? 0)}`}` })),
           ...lines.map((m) => ({ at: m.createdAt, what: `${name(m.loadId)}: ${(m.body as { text?: string }).text}` })),
           ...notes.map((n) => ({ at: n.createdAt, what: `You asked me to remember: ${n.text}` })),
         ];

@@ -32,7 +32,7 @@ function threadsOf(messages: FarmMessage[]): Thread[] {
   return [...by.values()].map((t) => ({ ...t, title: t.key === EARLIER ? "Earlier conversation" : t.title || "New conversation" })).sort((a, b) => b.at.localeCompare(a.at));
 }
 
-const SUGGESTIONS = ["What did we do last?", "Which load needs me most?", "How much has PayPal captured?", "Remember: Bargain Fresh pays late"];
+const SUGGESTIONS = ["What did we do last?", "Which load needs me most?", "How much has PayPal paid us?", "Remember: Bargain Fresh pays late"];
 
 /** "Ask your agent", from any page: a conversation grounded in this farm's records, with files and memory. */
 export function AgentPanel({ messages, notes, compact = false }: { messages: FarmMessage[]; notes: Note[]; compact?: boolean }) {

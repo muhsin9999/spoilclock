@@ -147,8 +147,8 @@ export async function settle(dockKey: string, outcome: DockOutcome): Promise<Mon
         body: {
           text:
             status === "captured"
-              ? `${b.name} accepted all ${deal.pallets} pallets. PayPal captured ${usd(cents)}. The load is sold.`
-              : `${b.name} received ${pallets} of ${deal.pallets} pallets, so PayPal captured only ${usd(cents)} and released the other ${usd((deal.pallets - pallets) * deal.perPalletCents)}.`,
+              ? `${b.name} accepted all ${deal.pallets} pallets. PayPal took payment of ${usd(cents)}. The load is sold.`
+              : `${b.name} received ${pallets} of ${deal.pallets} pallets, so PayPal took payment of only ${usd(cents)} and released the other ${usd((deal.pallets - pallets) * deal.perPalletCents)}.`,
         },
       });
     });
