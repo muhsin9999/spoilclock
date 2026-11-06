@@ -31,7 +31,7 @@ async function dock(href, action) {
   const phone = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const d = await phone.newPage();
   d.on("dialog", (x) => x.accept());
-  await d.goto(BASE + href, { waitUntil: "networkidle" });
+  await d.goto(BASE + href, { waitUntil: "load" }); await p.waitForTimeout(2500);
   await d.click(action);
   await d.waitForSelector("text=/Accepted · paid|Part accepted · paid|Rejected · hold released/", { timeout: 60000 });
   await d.screenshot({ path: `${out}/test-dock-${action.replace(/\W+/g, "")}.png`, fullPage: true });
@@ -46,7 +46,7 @@ async function negotiateAndApprove() {
   return p.getAttribute("text=Open the dock check", "href");
 }
 
-await p.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+await p.goto(`${BASE}/today`, { waitUntil: "load" }); await p.waitForTimeout(2500);
 await p.waitForSelector(".b-sch-event");
 
 await step("report a rejection with an uploaded PDF", async () => {
@@ -86,19 +86,19 @@ await step("negotiate, approve, dock accepts all", async () => {
   check("deal approved, PayPal holding", true, href);
   await shot("held");
   await dock(href, "button:has-text('Accept all')");
-  await p.reload({ waitUntil: "networkidle" });
+  await p.reload({ waitUntil: "load" }); await p.waitForTimeout(2500);
   await p.waitForSelector("text=/Captured \\$/", { timeout: 30000 });
   check("full capture shown on the load", true);
   await shot("paid");
 });
 
 await step("strawberries: dock rejects, PayPal voids, agent tries again", async () => {
-  await p.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/today`, { waitUntil: "load" }); await p.waitForTimeout(2500);
   await p.click("a:has-text('Truck 14')");
   await p.waitForURL(/\/loads\//);
   const href = await negotiateAndApprove();
   await dock(href, "button:has-text('Reject load')");
-  await p.reload({ waitUntil: "networkidle" });
+  await p.reload({ waitUntil: "load" }); await p.waitForTimeout(2500);
   await p.waitForSelector("text=/Rejected at the dock · hold released/", { timeout: 30000 });
   check("void shown on the load", true);
   const tryAgain = await p.isVisible("button:has-text('Try again')");
@@ -107,7 +107,7 @@ await step("strawberries: dock rejects, PayPal voids, agent tries again", async 
 });
 
 await step("rules: floor share and block a buyer", async () => {
-  await p.goto(`${BASE}/rules`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/rules`, { waitUntil: "load" }); await p.waitForTimeout(2500);
   await p.locator("input[name=floorShare]").fill("80");
   await p.click("button:has-text('Save floor')");
   await p.waitForSelector("text=Saved. New rejections use this floor.", { timeout: 15000 });
@@ -117,7 +117,7 @@ await step("rules: floor share and block a buyer", async () => {
 });
 
 await step("start a new day keeps history", async () => {
-  await p.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/today`, { waitUntil: "load" }); await p.waitForTimeout(2500);
   await p.click("button:has-text('Start a new day')");
   await p.waitForSelector("text=/day 2/", { timeout: 30000 });
   await p.waitForSelector("text=Truck 31", { timeout: 10000 });
@@ -126,15 +126,15 @@ await step("start a new day keeps history", async () => {
 });
 
 await step("loads and money show what happened", async () => {
-  await p.goto(`${BASE}/loads`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/loads`, { waitUntil: "load" }); await p.waitForTimeout(2500);
   const rows = await p.locator("tbody tr").count();
   check("loads lists every load", rows >= 3, `${rows} rows`);
   await shot("loads");
-  await p.goto(`${BASE}/money`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/money`, { waitUntil: "load" }); await p.waitForTimeout(2500);
   const entries = await p.locator("main ol li").count();
   check("money lists holds, capture and release", entries >= 4, `${entries} entries`);
   await shot("money");
-  await p.goto(`${BASE}/buyers`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/buyers`, { waitUntil: "load" }); await p.waitForTimeout(2500);
   await shot("buyers");
 });
 

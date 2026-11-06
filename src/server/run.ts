@@ -84,11 +84,14 @@ async function layOutDay(tx: Tx, run: { id: string; floorShare: number; blocked:
   await openRejection(tx, run, trip, SAMPLE_FINDINGS[trip.crop ?? "Strawberries"], trip.endAt);
 }
 
-/** Lays out a fresh run for this visitor if it doesn't have one yet. Safe to call concurrently. */
+/** Lays out a fresh run for this visitor if it doesn't have one yet. Safe to call concurrently: the run and its day
+ *  are written in one transaction, so a second request's insert waits for the first to commit and then sees the whole
+ *  day. (Inserting the run first let the sidebar and the board race on a first visit, and the board came up empty.) */
 export async function ensureRun(id: string) {
-  const created = await db.insert(s.runs).values({ id, anchor: new Date() }).onConflictDoNothing().returning();
-  if (created.length === 0) return;
-  await db.transaction((tx) => layOutDay(tx, created[0], 1));
+  await db.transaction(async (tx) => {
+    const created = await tx.insert(s.runs).values({ id, anchor: new Date() }).onConflictDoNothing().returning();
+    if (created.length) await layOutDay(tx, created[0], 1);
+  });
 }
 
 /** "Start a new day": a fresh set of trucks and a new rejection. Earlier loads, deals and payments stay. */
