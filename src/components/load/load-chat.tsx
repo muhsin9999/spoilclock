@@ -10,10 +10,11 @@ import { useDictation, VoiceButton } from "@/components/app/voice-input";
 
 export type ChatMessage = { id: string; kind: string; body: { text?: string; files?: string[]; steps?: string[]; seconds?: number } };
 
-const SUGGESTIONS = ["Why did FreshMart reject it?", "Don't sell to Bargain Fresh", "Raise my floor to $160"];
+// Worded for this load: who turned it away comes from the load itself.
+const suggestionsFor = (rejectedBy: string) => [`Why did ${rejectedBy.replace(/ DC$/, "")} reject it?`, "Don't sell to Bargain Fresh", "Raise my floor to $160"];
 
 /** This load's chat with your agent. Its work folds into the conversation; rule changes show as a line. */
-export function LoadChat({ loadId, truck, messages, working, closed }: { loadId: string; truck: string; messages: ChatMessage[]; working: boolean; closed?: boolean }) {
+export function LoadChat({ loadId, truck, rejectedBy, messages, working, closed }: { loadId: string; truck: string; rejectedBy: string; messages: ChatMessage[]; working: boolean; closed?: boolean }) {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [pending, setPending] = useState<{ text: string; file?: string } | null>(null);
@@ -21,7 +22,7 @@ export function LoadChat({ loadId, truck, messages, working, closed }: { loadId:
   const end = useRef<HTMLDivElement>(null);
   const voice = useDictation(text, setText);
   const asked = new Set(messages.filter((m) => m.kind === "user").map((m) => m.body.text?.trim()));
-  const left = SUGGESTIONS.filter((s) => !asked.has(s));
+  const left = suggestionsFor(rejectedBy).filter((s) => !asked.has(s));
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest" });

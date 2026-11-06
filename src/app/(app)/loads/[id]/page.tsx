@@ -126,7 +126,7 @@ async function Load({ params }: { params: PageProps<"/loads/[id]">["params"] }) 
           </section>
 
           <div className="xl:sticky xl:top-5 xl:self-start">
-            <LoadChat loadId={load.id} truck={truck.name} messages={messages as ChatMessage[]} working={working} closed={spoiled} />
+            <LoadChat loadId={load.id} truck={truck.name} rejectedBy={load.rejectedBy} messages={messages as ChatMessage[]} working={working} closed={spoiled} />
           </div>
         </div>
       </main>

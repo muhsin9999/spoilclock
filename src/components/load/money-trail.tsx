@@ -44,7 +44,7 @@ export async function MoneyTrail({ deal, events, card }: { deal: Deal; events: E
       <ol className="mt-5 space-y-4">
         <Step
           title={`PayPal is holding ${usd(total)}`}
-          detail={`On ${b.name}'s ${card ?? "card"} · approved ${deal.approvedAt ? clock(deal.approvedAt.getTime()) : ""} · authorization ${deal.authorizationId}`}
+          detail={`On ${b.name}'s ${card ?? "card"} · approved ${deal.approvedAt ? clock(deal.approvedAt.getTime()) : ""} · PayPal ref ${deal.authorizationId}`}
           proof={confirmed("PAYMENT.AUTHORIZATION.CREATED")}
           done
         />
@@ -60,7 +60,7 @@ export async function MoneyTrail({ deal, events, card }: { deal: Deal; events: E
             </div>
           </li>
         ) : deal.status === "voided" ? (
-          <Step title="Rejected at the dock · hold released" detail={`PayPal voided the authorization ${deal.settledAt ? `at ${clock(deal.settledAt.getTime())}` : ""} · no money moved`} proof={confirmed("PAYMENT.AUTHORIZATION.VOIDED")} done />
+          <Step title="Rejected at the dock · hold released" detail={`PayPal released the hold ${deal.settledAt ? `at ${clock(deal.settledAt.getTime())}` : ""} · no money moved`} proof={confirmed("PAYMENT.AUTHORIZATION.VOIDED")} done />
         ) : (
           <Step
             title={deal.status === "partial" ? `Captured ${usd(deal.capturedCents ?? 0)} for the pallets that arrived` : `Captured ${usd(deal.capturedCents ?? total)}`}
@@ -85,12 +85,12 @@ function Step({ title, detail, proof, done }: { title: string; detail: string; p
           {proof ? (
             <>
               <BadgeCheck className="size-3.5 text-forest" />
-              <span className="text-forest">Confirmed by PayPal&apos;s signed webhook</span>
+              <span className="text-forest">Confirmed by PayPal</span>
             </>
           ) : (
             <>
               <Clock3 className="size-3.5 text-ink-muted" />
-              <span className="text-ink-muted">Waiting for PayPal&apos;s webhook</span>
+              <span className="text-ink-muted">Waiting for PayPal to confirm</span>
             </>
           )}
         </div>

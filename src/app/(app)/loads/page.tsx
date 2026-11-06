@@ -28,7 +28,7 @@ async function Loads() {
   const atStake = sold.reduce((a, d) => a + d.pallets * (loads.find((l) => l.id === d.loadId)?.originalCents ?? 0), 0);
   const kpis = [
     ["Rescued", `${sold.length} of ${loads.length}`, "loads sold after a rejection"],
-    ["Recovered", usd(recovered), "captured on PayPal"],
+    ["Recovered", usd(recovered), "paid through PayPal"],
     ["Of the original price", atStake ? `${Math.round((recovered / atStake) * 100)}%` : "–", "what the rescued loads earned"],
     ["Spoiled", String(loads.filter((l) => loadState(l, now) === "spoiled").length), "loads that ran out of time"],
   ];

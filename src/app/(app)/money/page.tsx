@@ -15,9 +15,9 @@ const usd = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFracti
 const EVENT: Record<string, string> = {
   "PAYMENT.AUTHORIZATION.CREATED": "Hold confirmed",
   "PAYMENT.AUTHORIZATION.VOIDED": "Release confirmed",
-  "PAYMENT.CAPTURE.COMPLETED": "Capture confirmed",
+  "PAYMENT.CAPTURE.COMPLETED": "Payment confirmed",
   "PAYMENT.CAPTURE.REFUNDED": "Refund confirmed",
-  "PAYMENT.CAPTURE.DENIED": "Capture denied",
+  "PAYMENT.CAPTURE.DENIED": "Payment declined",
 };
 
 export default function MoneyPage() {
@@ -44,19 +44,19 @@ async function Money() {
     if (d.approvedAt) rows.push({ at: d.approvedAt.getTime(), dealId: d.id, loadId: d.loadId, what: `Held on ${buyer(d.buyerId)?.name}'s card`, amount: total, sign: "hold", ref: d.authorizationId, confirmed: ev("PAYMENT.AUTHORIZATION.CREATED") && EVENT["PAYMENT.AUTHORIZATION.CREATED"] });
     if (d.settledAt && d.status === "voided") rows.push({ at: d.settledAt.getTime(), dealId: d.id, loadId: d.loadId, what: "Hold released: rejected at the dock", amount: total, sign: "release", ref: d.authorizationId, confirmed: ev("PAYMENT.AUTHORIZATION.VOIDED") && EVENT["PAYMENT.AUTHORIZATION.VOIDED"] });
     if (d.settledAt && (d.status === "captured" || d.status === "partial"))
-      rows.push({ at: d.settledAt.getTime(), dealId: d.id, loadId: d.loadId, what: d.status === "partial" ? `Captured for the pallets that arrived (${usd(total - (d.capturedCents ?? 0))} released)` : "Captured: accepted at the dock", amount: d.capturedCents, sign: "+", ref: d.captureId, confirmed: ev("PAYMENT.CAPTURE.COMPLETED") && EVENT["PAYMENT.CAPTURE.COMPLETED"] });
+      rows.push({ at: d.settledAt.getTime(), dealId: d.id, loadId: d.loadId, what: d.status === "partial" ? `Paid for the pallets that arrived (${usd(total - (d.capturedCents ?? 0))} released)` : "Paid: accepted at the dock", amount: d.capturedCents, sign: "+", ref: d.captureId, confirmed: ev("PAYMENT.CAPTURE.COMPLETED") && EVENT["PAYMENT.CAPTURE.COMPLETED"] });
   }
   rows.sort((a, b) => b.at - a.at);
 
   return (
     <div className="flex min-h-svh flex-col">
-      <PageHeader title="Money" subtitle="Every PayPal step on your loads, with PayPal's own reference and its signed webhook. Sandbox only." />
+      <PageHeader title="Money" subtitle="Every payment on your loads, as PayPal reports it. Sandbox only." />
       <main className="w-full max-w-[1500px] space-y-6 px-6 pb-10 md:px-10">
         <dl className="grid gap-4 sm:grid-cols-3">
           {[
-            ["Captured", usd(captured), "paid to Salinas Ridge Farms"],
-            ["Held now", usd(held), "authorized, waiting for a dock"],
-            ["Released", usd(released), "voided or short, never charged"],
+            ["Paid to you", usd(captured), "charged once the dock accepted the load"],
+            ["Held now", usd(held), "PayPal holds it until the dock checks the load"],
+            ["Released", usd(released), "never charged: the dock said no, or pallets were short"],
           ].map(([k, v, note]) => (
             <div key={k} className="rounded-xl border border-line bg-card-soft p-5">
               <dt className="text-sm text-ink-muted">{k}</dt>
@@ -88,14 +88,14 @@ async function Money() {
                     </span>
                     <span className="block text-sm">{r.what}</span>
                     <span className="mt-0.5 flex flex-wrap items-center gap-x-3 font-mono text-xs text-ink-muted">
-                      {r.ref}
+                      {r.ref ? <span>PayPal ref {r.ref}</span> : null}
                       {r.confirmed ? (
                         <span className="inline-flex items-center gap-1 font-sans text-forest">
-                          <BadgeCheck className="size-3.5" /> {r.confirmed} by PayPal&apos;s signed webhook
+                          <BadgeCheck className="size-3.5" /> {r.confirmed} by PayPal
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 font-sans">
-                          <Clock3 className="size-3.5" /> waiting for PayPal&apos;s webhook
+                          <Clock3 className="size-3.5" /> waiting for PayPal to confirm
                         </span>
                       )}
                     </span>
