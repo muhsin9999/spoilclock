@@ -184,8 +184,10 @@
 .sc-board .b-sch-event.sc-rejected { background: var(--spoiling-tint); border-color: color-mix(in srgb, var(--spoiling) 45%, transparent); color: #7a2a1a; }
 .sc-board .sc-rejected .sc-dot { background: var(--spoiling); }
 .sc-board .b-sch-event.sc-redelivery { background: color-mix(in srgb, var(--forest-tint) 70%, transparent); border: 1.5px dashed var(--forest); }
-/* The agent's new delivery is often short (unloaded within the hour): its label runs past the bar instead of being cut. */
-.sc-board .b-sch-event-wrap:has(.sc-redelivery), .sc-board .b-sch-event.sc-redelivery { overflow: visible; }
+/* The agent's new delivery is often short (unloaded within the hour): its box grows to fit the label instead of
+   cutting it. It starts at the right time; only its end is drawn later than the unload time when the label needs it. */
+.sc-board .b-sch-event-wrap:has(.sc-redelivery) { overflow: visible; min-width: max-content !important; z-index: 2; justify-items: start; }
+.sc-board .b-sch-event.sc-redelivery { overflow: visible; min-width: max-content !important; padding-right: 0.75rem; justify-self: start; background: var(--forest-tint) !important; }
 .sc-board .b-sch-event.sc-redelivery .b-sch-event-content { overflow: visible; flex: 0 0 auto; }
 .sc-board .b-sch-event.sc-redelivery .sc-trip-text { min-width: max-content; }
 .sc-board .b-sch-event.sc-redelivery .sc-trip-text, .sc-board .b-sch-event.sc-redelivery .sc-trip-text > * { overflow: visible; text-overflow: clip; }
