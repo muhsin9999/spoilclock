@@ -184,6 +184,11 @@
 .sc-board .b-sch-event.sc-rejected { background: var(--spoiling-tint); border-color: color-mix(in srgb, var(--spoiling) 45%, transparent); color: #7a2a1a; }
 .sc-board .sc-rejected .sc-dot { background: var(--spoiling); }
 .sc-board .b-sch-event.sc-redelivery { background: color-mix(in srgb, var(--forest-tint) 70%, transparent); border: 1.5px dashed var(--forest); }
+/* The agent's new delivery is often short (unloaded within the hour): its label runs past the bar instead of being cut. */
+.sc-board .b-sch-event-wrap:has(.sc-redelivery), .sc-board .b-sch-event.sc-redelivery { overflow: visible; }
+.sc-board .b-sch-event.sc-redelivery .b-sch-event-content { overflow: visible; flex: 0 0 auto; }
+.sc-board .b-sch-event.sc-redelivery .sc-trip-text { min-width: max-content; }
+.sc-board .b-sch-event.sc-redelivery .sc-trip-text, .sc-board .b-sch-event.sc-redelivery .sc-trip-text > * { overflow: visible; text-overflow: clip; }
 .sc-board .b-sch-current-time { border-left-width: 2px; }
 /* "Now" lives in the board, not the time header, so every hour label stays readable; the line runs behind the trips. */
 .sc-board .b-time-ranges-header-canvas .b-sch-current-time { display: none; }

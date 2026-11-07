@@ -1,4 +1,4 @@
-// The agent loop (shared with Lifeline): the first turn is always a plan, then the model picks its own tools
+// The agent loop: the first turn is always a plan, then the model picks its own tools
 // until it returns the final answer in a fixed schema. Each step is reported as it happens, so the UI can show
 // the plan and the live tool calls. No database access here; callers load the facts and store the result.
 import "@/lib/net";
@@ -96,7 +96,7 @@ export async function runAgent<T>(opts: {
         args = JSON.parse(call.arguments || "{}");
         output = call.name === "write_plan" ? { ok: true } : tool ? await tool.run(args) : { error: "unknown_tool", message: `Unknown tool ${call.name}` };
       } catch (e) {
-        // Internals (SQL, stack traces) stay in the server log; the model and the officer see a plain message.
+        // Internals (SQL, stack traces) stay in the server log; the model and the grower see a plain message.
         console.error(`tool ${call.name} failed`, e);
         output = { error: "tool_failed", message: "Couldn't read this just now" };
       }

@@ -99,7 +99,7 @@ Everything on that page comes from one file, `src/lib/architecture.ts`.
 Needs Node 22, a PayPal sandbox REST app (US business account, with Vault enabled), an OpenAI key and a Postgres database (Neon's free tier works).
 
 ```bash
-git clone <this repo> && cd spoilclock
+git clone https://github.com/muhsin9999/spoilclock.git && cd spoilclock
 npm install
 cp .env.example .env.local        # fill in DATABASE_URL, OPENAI_API_KEY, PayPal keys
 npm run db:migrate
